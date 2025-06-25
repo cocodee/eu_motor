@@ -1,0 +1,107 @@
+# Compiler generated files
+*.o
+*.obj
+*.a
+*.so
+*.dll
+*.dylib
+
+# Build directories
+build/
+CMakeFiles/
+cmake_install.cake
+CMakeCache.txt
+
+# Editor and IDE files
+.vscode/
+*.swp
+*.swo
+*.swn
+*.bak
+
+# OS generated files
+.DS_Store
+
+# Logs and temporary files
+*.log
+*.tmp
+
+# Libraries
+lib/*.so
+lib/*.dll
+
+# Documentation build outputs
+doc/html/
+
+# Docker build outputs
+docker/build/
+
+# Example test binaries
+example/*.out
+example/*.exe
+
+# Other
+*.pyc
+*.pyo
+*.pyd
+*.class
+*.jar
+*.war
+*.ear
+*.lock
+*.pid
+*.seed
+*.pid.lock
+*.env
+*.env.*
+*.env.local
+*.env.*.local
+*.env.test.local
+
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyo
+*.pyd
+*.pyc
+*.pyo
+*.pyd
+*.pyc
+*.pyo
+*.pyd
+*.pyc
+*.pyo
+*.pyd
+
+# Java
+*.class
+*.jar
+*.war
+*.ear
+*.iml
+*.ipr
+*.iws
+out/
+target/
+
+# Miscellaneous
+*.tmp
+*.bak
+*.swp
+*.lock
+*.log
+*.pid
+*.seed
+*.pid.lock
+*.env
+*.env.*
+*.env.local
+*.env.*.local
+*.env.test.local
