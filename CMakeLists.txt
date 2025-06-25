@@ -9,7 +9,7 @@ if(NOT DEFINED EYOU_LIB_PATH)
 endif()
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${EYOU_LIB_PATH})
 
-add_executable(eu_motor src/eu_motor.cpp)
+add_library(eu_motor SHARED src/eu_motor.cpp)
 
 if(WIN32)
     target_link_libraries(eu_motor ${EYOU_LIB_PATH}/eu_harmonic.dll)
