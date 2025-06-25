@@ -8,6 +8,11 @@ if(NOT DEFINED EYOU_LIB_PATH)
 endif()
 #set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${EYOU_LIB_PATH})
 
+
+set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
+
 function(add_custom_test test_name)
     add_executable(${test_name} ${test_name}.cpp)
     if(WIN32)
