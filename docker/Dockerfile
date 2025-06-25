@@ -10,6 +10,7 @@ RUN apt-get update && \
     build-essential \
     cmake \
     libpthread-stubs0-dev \
+    libnl-3-dev libnl-route-3-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # Set the working directory
