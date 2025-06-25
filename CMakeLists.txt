@@ -9,6 +9,7 @@ if(NOT DEFINED EYOU_LIB_PATH)
 endif()
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${EYOU_LIB_PATH})
 
+add_subdirectory(example)
 add_library(eu_motor SHARED src/eu_motor.cpp)
 
 if(WIN32)
