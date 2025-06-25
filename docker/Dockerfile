@@ -19,10 +19,10 @@ WORKDIR /app
 COPY . /app
 
 # Build the project
-RUN mkdir -p build && \
-    cd build && \
-    cmake .. && \
-    make
+#RUN mkdir -p build && \
+#    cd build && \
+#    cmake .. && \
+#    make
 
 # Command to run the project (adjust as necessary)
 CMD ["./build/eu_motor"]
