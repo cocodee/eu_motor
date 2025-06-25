@@ -15,4 +15,4 @@ docker build \
   --build-arg http_proxy=$PROXY_URL \
   --build-arg https_proxy=$PROXY_URL \
   --build-arg NO_PROXY=localhost,127.0.0.1 \
-  -t $IMAGE_NAME .
+  -t $IMAGE_NAME ..
