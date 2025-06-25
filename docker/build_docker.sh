@@ -1,7 +1,7 @@
 #!/bin/bash
 IMAGE_NAME="eu_motor_base:latest"
 # Set proxy configuration
-PROXY_URL="http://192.168.4.6:8080"
+PROXY_URL="http://192.168.2.57:8080"
 
 export http_proxy=$PROXY_URL
 export https_proxy=$PROXY_URL
