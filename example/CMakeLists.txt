@@ -6,7 +6,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 if(NOT DEFINED EYOU_LIB_PATH)
     set(EYOU_LIB_PATH ${CMAKE_SOURCE_DIR}/../lib)
 endif()
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${EYOU_LIB_PATH})
+#set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${EYOU_LIB_PATH})
 
 function(add_custom_test test_name)
     add_executable(${test_name} ${test_name}.cpp)
