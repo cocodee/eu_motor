@@ -215,7 +215,7 @@ T EuMotorNode::read(huint16 index, huint8 subIndex) {
     harmonic_DataType dt;
     if (std::is_same<T, huint8>::value) dt = harmonic_DataType_uint8;
     else if (std::is_same<T, huint16>::value) dt = harmonic_DataType_uint16;
-    else if (std::is_same<T, huint32>::value)) dt = harmonic_DataType_uint32;
+    else if (std::is_same<T, huint32>::value) dt = harmonic_DataType_uint32;
     else if (std::is_same<T, hint8>::value) dt = harmonic_DataType_int8;
     else if (std::is_same<T, hint16>::value) dt = harmonic_DataType_int16;
     else if (std::is_same<T, hint32>::value) dt = harmonic_DataType_int32;
@@ -232,7 +232,7 @@ bool EuMotorNode::write(huint16 index, huint8 subIndex, T value) {
     harmonic_DataType dt;
     if (std::is_same<T, huint8>::value) dt = harmonic_DataType_uint8;
     else if (std::is_same<T, huint16>::value) dt = harmonic_DataType_uint16;
-    else if (std::is_same<T, huint32>::value)) dt = harmonic_DataType_uint32;
+    else if (std::is_same<T, huint32>::value) dt = harmonic_DataType_uint32;
     else if (std::is_same<T, hint8>::value) dt = harmonic_DataType_int8;
     else if (std::is_same<T, hint16>::value) dt = harmonic_DataType_int16;
     else if (std::is_same<T, hint32>::value) dt = harmonic_DataType_int32;
