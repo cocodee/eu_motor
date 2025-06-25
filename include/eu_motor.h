@@ -43,8 +43,8 @@ private:
     CanNetworkManager() = default;
     ~CanNetworkManager(); // Destructor will free all initialized devices.
 
-    std::map<huint8, bool> initialized_devices_;
-    std::mutex mutex_;
+    static std::map<huint8, bool> initialized_devices_;
+    static std::mutex mutex_;
 };
 
 

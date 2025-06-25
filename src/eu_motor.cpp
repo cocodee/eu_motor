@@ -213,12 +213,12 @@ T EuMotorNode::read(huint16 index, huint8 subIndex) {
     // This is a simplified example.
     T value;
     harmonic_DataType dt;
-    if constexpr (std::is_same_v<T, huint8>) dt = harmonic_DataType_uint8;
-    else if constexpr (std::is_same_v<T, huint16>) dt = harmonic_DataType_uint16;
-    else if constexpr (std::is_same_v<T, huint32>) dt = harmonic_DataType_uint32;
-    else if constexpr (std::is_same_v<T, hint8>) dt = harmonic_DataType_int8;
-    else if constexpr (std::is_same_v<T, hint16>) dt = harmonic_DataType_int16;
-    else if constexpr (std::is_same_v<T, hint32>) dt = harmonic_DataType_int32;
+    if (std::is_same<T, huint8>::value) dt = harmonic_DataType_uint8;
+    else if (std::is_same<T, huint16>::value) dt = harmonic_DataType_uint16;
+    else if (std::is_same<T, huint32>::value)) dt = harmonic_DataType_uint32;
+    else if (std::is_same<T, hint8>::value) dt = harmonic_DataType_int8;
+    else if (std::is_same<T, hint16>::value) dt = harmonic_DataType_int16;
+    else if (std::is_same<T, hint32>::value) dt = harmonic_DataType_int32;
     else throw std::invalid_argument("Unsupported type for read operation");
 
     if(!check(harmonic_readDirectory(dev_index_, node_id_, index, subIndex, dt, &value, timeout_ms_), "Generic Read")) {
