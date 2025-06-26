@@ -60,7 +60,7 @@ int main()
 {
     signal(SIGINT, signal_handler);
 
-    if (HARMONIC_SUCCESS != harmonic_initDLL(harmonic_DeviceType_Canable, devIndex, harmonic_Baudrate_1000))
+    if (HARMONIC_SUCCESS != harmonic_initDLL(harmonic_DeviceType_Canable, devIndex, harmonic_Baudrate_500))
     {
         std::cout << "[error]test open failed!" << std::endl;
         return -1;
@@ -182,7 +182,7 @@ int main()
         setPos(id, pos, isSync);
         std::cout << std::dec << pos << std::endl;
         std::this_thread::sleep_for(std::chrono::milliseconds(itpv)); //! 需根据平台选择高精度定时器以获得更好的控制效果
-        pos += step;
+        //pos += step;
     };
     return 0;
 }
