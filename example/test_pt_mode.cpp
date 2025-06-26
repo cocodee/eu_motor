@@ -44,7 +44,7 @@ void signal_handler(int signal)
 int main()
 {
     signal(SIGINT, signal_handler);
-    if (HARMONIC_SUCCESS != harmonic_initDLL(harmonic_DeviceType_Canable, devIndex, harmonic_Baudrate_1000))
+    if (HARMONIC_SUCCESS != harmonic_initDLL(harmonic_DeviceType_Canable, devIndex, harmonic_Baudrate_500))
     {
         std::cout << "[error]test open failed!" << std::endl;
         harmonic_freeDLL(devIndex);
