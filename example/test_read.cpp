@@ -32,7 +32,7 @@ void receiveCallback(int devIndex, const harmonic_CanMsg *msg)
     printHexArray(false, msg->data, msg->len);
 }
 
-int devIndex = 0;
+int devIndex = 1;
 
 void signal_handler(int signal)
 {
@@ -53,7 +53,7 @@ int main()
     // harmonic_setSendDataCallBack(sendCallback);
     // harmonic_setReceiveDataCallBack(receiveCallback);
 
-    int id = 1;
+    int id = 7;
 
     harmonic_NodeState state;
     if (HARMONIC_SUCCESS != harmonic_getNodeState(devIndex, id, &state))
