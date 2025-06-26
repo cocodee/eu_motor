@@ -289,6 +289,119 @@ void EuMotorNode::sendCspTargetPosition(hreal32 target_angle_deg, huint16 pdo_in
     harmonic_writeCanData(dev_index_, rpdo_base_cobid + node_id_, data, 4);
 }
 
+/**
+ * @brief Configures the motor for Cyclic Sync Torque (CST) mode.
+ * This function sets up the necessary PDOs for real-time torque control.
+ * It follows the logic from the test_cst_mode.cpp example.
+ */
+bool EuMotorNode::configureCstMode(huint8 interpolation_period_ms, huint16 pdo_index) {
+    std::cout << "INFO [Motor " << (int)node_id_ << "]: Configuring for CST mode..." << std::endl;
+
+    // Switch to pre-operational state for configuration
+    if (!check(harmonic_setNodeState(dev_index_, node_id_, harmonic_NMTState_Enter_PreOperational), "CST: Enter Pre-Op")) return false;
+    
+    // 1. Set interpolation time period (Object 0x60C2, Sub-index 1)
+    if (!check(harmonic_setInterpolationTimePeriodValue(dev_index_, node_id_, interpolation_period_ms), "CST: Set Interpolation Time")) return false;
+
+    // 2. Configure RPDO communication type to be synchronous cyclic (Type 1)
+    // This makes the motor wait for a SYNC message before applying the received torque value.
+    if (!check(harmonic_setRPDOTransmitType(dev_index_, node_id_, pdo_index, 1), "CST: Set RPDO Type to Sync")) return false;
+
+    // 3. Map the RPDO to the target torque object (0x6071)
+    // First, disable mapping by setting the count to 0
+    if (!check(harmonic_setRPDOMaxMappedCount(dev_index_, node_id_, pdo_index, 0), "CST: Clear RPDO Map")) return false;
+    
+    // Map Target Torque (Object 0x6071), 16 bits long (0x10)
+    // Note: The example code sends 4 bytes, but object 6071h is typically a 16-bit integer (hint16).
+    // We will stick to the 16-bit standard which is more common.
+    huint32 mapping_value = (0x6071 << 16) + 0x0010; 
+    if (!check(harmonic_setRPDOMapped(dev_index_, node_id_, pdo_index, 0, mapping_value), "CST: Set RPDO Map to Target Torque")) return false;
+    
+    // Now, enable mapping by setting the count back to 1
+    if (!check(harmonic_setRPDOMaxMappedCount(dev_index_, node_id_, pdo_index, 1), "CST: Set RPDO Map Count")) return false;
+
+    // 4. Set the final operation mode and enable the state machine.
+    // The switchMode function will handle setting the mode and enabling the controlword state machine.
+    return switchMode(harmonic_OperateMode_CyclicSyncTorque);
+}
+
+/**
+ * @brief Sends the target torque value for CST mode using a direct CAN write.
+ * This should be called in a real-time loop, followed by a sendSync() call.
+ */
+void EuMotorNode::sendCstTargetTorque(hint16 target_torque, huint16 pdo_index) {
+    // Determine the COB-ID for the RPDO.
+    // Default RPDOs are at 0x200, 0x300, 0x400, 0x500 for RPDO 1, 2, 3, 4.
+    // So, RPDO index 0 corresponds to RPDO1.
+    huint32 rpdo_base_cobid = 0x200 + (pdo_index * 0x100);
+    huint32 cob_id = rpdo_base_cobid + node_id_;
+
+    // Prepare the 2-byte payload for the 16-bit torque value (little-endian)
+    huint8 data[2];
+    data[0] = target_torque & 0xFF;
+    data[1] = (target_torque >> 8) & 0xFF;
+    
+    // Write the data directly to the CAN bus. This is a non-blocking, non-checked call
+    // for real-time performance.
+    harmonic_writeCanData(dev_index_, cob_id, data, 2);
+}
+
+/**
+ * @brief Configures the motor for Cyclic Sync Velocity (CSV) mode.
+ * This function sets up the necessary PDOs for real-time velocity control.
+ * It follows the logic from the test_csv_mode.cpp example.
+ */
+bool EuMotorNode::configureCsvMode(huint8 interpolation_period_ms, huint16 pdo_index) {
+    std::cout << "INFO [Motor " << (int)node_id_ << "]: Configuring for CSV mode..." << std::endl;
+
+    // Switch to pre-operational state for configuration
+    if (!check(harmonic_setNodeState(dev_index_, node_id_, harmonic_NMTState_Enter_PreOperational), "CSV: Enter Pre-Op")) return false;
+    
+    // 1. Set interpolation time period (Object 0x60C2, Sub-index 1)
+    if (!check(harmonic_setInterpolationTimePeriodValue(dev_index_, node_id_, interpolation_period_ms), "CSV: Set Interpolation Time")) return false;
+
+    // 2. Configure RPDO communication type to be synchronous cyclic (Type 1)
+    if (!check(harmonic_setRPDOTransmitType(dev_index_, node_id_, pdo_index, 1), "CSV: Set RPDO Type to Sync")) return false;
+
+    // 3. Map the RPDO to the target velocity object (0x60FF)
+    // First, disable mapping by setting the count to 0
+    if (!check(harmonic_setRPDOMaxMappedCount(dev_index_, node_id_, pdo_index, 0), "CSV: Clear RPDO Map")) return false;
+    
+    // Map Target Velocity (Object 0x60FF), 32 bits long (0x20)
+    huint32 mapping_value = (0x60FF << 16) + 0x0020; 
+    if (!check(harmonic_setRPDOMapped(dev_index_, node_id_, pdo_index, 0, mapping_value), "CSV: Set RPDO Map to Target Velocity")) return false;
+    
+    // Now, enable mapping by setting the count back to 1
+    if (!check(harmonic_setRPDOMaxMappedCount(dev_index_, node_id_, pdo_index, 1), "CSV: Set RPDO Map Count")) return false;
+
+    // 4. Set the final operation mode and enable the state machine.
+    // The switchMode function handles setting the mode and enabling the controlword state machine.
+    return switchMode(harmonic_OperateMode_CyclicSyncVelocity);
+}
+
+/**
+ * @brief Sends the target velocity value for CSV mode using a direct CAN write.
+ * This should be called in a real-time loop, followed by a sendSync() call.
+ */
+void EuMotorNode::sendCsvTargetVelocity(hreal32 target_velocity_dps, huint16 pdo_index) {
+    // Determine the COB-ID for the RPDO.
+    // Default RPDOs are at 0x200, 0x300, 0x400, 0x500 for RPDO 1, 2, 3, 4.
+    huint32 rpdo_base_cobid = 0x200 + (pdo_index * 0x100);
+    huint32 cob_id = rpdo_base_cobid + node_id_;
+
+    // Convert the user-friendly degrees/sec to device-specific pulses/sec
+    hint32 vel_pulses = velocityToPulses(target_velocity_dps);
+
+    // Prepare the 4-byte payload for the 32-bit velocity value (little-endian)
+    huint8 data[4];
+    data[0] = vel_pulses & 0xFF;
+    data[1] = (vel_pulses >> 8) & 0xFF;
+    data[2] = (vel_pulses >> 16) & 0xFF;
+    data[3] = (vel_pulses >> 24) & 0xFF;
+    
+    // Write the data directly to the CAN bus for real-time performance.
+    harmonic_writeCanData(dev_index_, cob_id, data, 4);
+}
 void EuMotorNode::sendSync() {
     harmonic_writeCanData(dev_index_, 0x80, nullptr, 0);
 }

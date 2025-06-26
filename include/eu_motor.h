@@ -163,14 +163,33 @@ public:
      * @return True on success, false on failure.
      */
     bool configureCspMode(huint16 pdo_index = 0);
-    
+
+    bool configureCstMode(huint8 interpolation_period_ms, huint16 pdo_index = 0);  
+
     /**
-     * @brief Sends a target position via a raw CAN frame (PDO). For use in a real-time loop.
-     * @param target_angle_deg The target angle for the next sync cycle.
-     * @param pdo_index The RPDO to use (must match configuration).
+     * @brief Configures the motor for Cyclic Sync Velocity (CSV) mode.
+     * @param interpolation_period_ms The time period in milliseconds for interpolation.
+     * @param pdo_index The RPDO index to use for receiving target velocity (default 0 for RPDO1).
+     * @return True if configuration is successful, false otherwise.
      */
+    bool configureCsvMode(huint8 interpolation_period_ms, huint16 pdo_index = 0);
+
+    // --- Real-time Commands ---
     void sendCspTargetPosition(hreal32 target_angle_deg, huint16 pdo_index = 0);
-    
+    /**
+     * @brief Sends the target torque value via a raw CAN frame for CST mode.
+     * @param target_torque The target torque in device-specific units (usually 1/1000 of rated torque).
+     * @param pdo_index The RPDO index that was configured (default 0 for RPDO1).
+     */
+    void sendCstTargetTorque(hint16 target_torque, huint16 pdo_index = 0);
+
+     /**
+     * @brief Sends the target velocity value via a raw CAN frame for CSV mode.
+     * @param target_velocity_dps The target velocity in degrees per second.
+     * @param pdo_index The RPDO index that was configured (default 0 for RPDO1).
+     */
+    void sendCsvTargetVelocity(hreal32 target_velocity_dps, huint16 pdo_index = 0);
+   
     /**
      * @brief Broadcasts a SYNC message on the bus to trigger all synced motors.
      */
