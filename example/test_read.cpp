@@ -32,7 +32,7 @@ void receiveCallback(int devIndex, const harmonic_CanMsg *msg)
     printHexArray(false, msg->data, msg->len);
 }
 
-int devIndex = 0;
+int devIndex = 1;
 
 void signal_handler(int signal)
 {
@@ -43,7 +43,7 @@ void signal_handler(int signal)
 int main()
 {
     signal(SIGINT, signal_handler);
-    if (HARMONIC_SUCCESS != harmonic_initDLL(harmonic_DeviceType_Canable, devIndex, harmonic_Baudrate_1000))
+    if (HARMONIC_SUCCESS != harmonic_initDLL(harmonic_DeviceType_Canable, devIndex, harmonic_Baudrate_500))
     {
         std::cout << "[error]test open failed!" << std::endl;
         return -1;
@@ -53,7 +53,7 @@ int main()
     // harmonic_setSendDataCallBack(sendCallback);
     // harmonic_setReceiveDataCallBack(receiveCallback);
 
-    int id = 1;
+    int id = 7;
 
     harmonic_NodeState state;
     if (HARMONIC_SUCCESS != harmonic_getNodeState(devIndex, id, &state))
