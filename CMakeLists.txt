@@ -14,10 +14,4 @@ endif()
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${EYOU_LIB_PATH})
 
 add_subdirectory(example)
-add_library(eu_motor SHARED src/eu_motor.cpp)
-
-if(WIN32)
-    target_link_libraries(eu_motor ${EYOU_LIB_PATH}/eu_harmonic.dll)
-elseif(UNIX)
-    target_link_libraries(eu_motor ${EYOU_LIB_PATH}/libeu_harmonic.so pthread)
-endif()
+add_subdirectory(src)
