@@ -116,7 +116,7 @@ public:
      * @param acceleration_dpss Profile acceleration in degrees per second squared.
      * @return True on success, false on failure.
      */
-    bool moveTo(hreal32 target_angle_deg, huint32 velocity_dps, huint32 acceleration_dpss);
+    bool moveTo(hreal32 target_angle_deg, huint32 velocity_dps, huint32 acceleration_dpss,huint32 deceleration_dpss);
 
     /**
      * @brief Rotates at a constant velocity in Profile Velocity (PV) mode.
@@ -124,7 +124,7 @@ public:
      * @param acceleration_dpss Profile acceleration in degrees per second squared.
      * @return True on success, false on failure.
      */
-    bool moveAt(hreal32 target_velocity_dps, huint32 acceleration_dpss);
+    bool moveAt(hreal32 target_velocity_dps, huint32 acceleration_dpss,huint32 deceleration_dpss);
 
     /**
      * @brief Applies a target torque in Profile Torque (PT) mode.
@@ -175,21 +175,38 @@ public:
     bool configureCsvMode(huint8 interpolation_period_ms, huint16 pdo_index = 0);
 
     // --- Real-time Commands ---
-    void sendCspTargetPosition(hreal32 target_angle_deg, huint16 pdo_index = 0);
+    void sendCspTargetPosition(hreal32 target_angle_deg, huint16 pdo_index = 0, bool isSync=true);
     /**
      * @brief Sends the target torque value via a raw CAN frame for CST mode.
      * @param target_torque The target torque in device-specific units (usually 1/1000 of rated torque).
      * @param pdo_index The RPDO index that was configured (default 0 for RPDO1).
      */
-    void sendCstTargetTorque(hint16 target_torque, huint16 pdo_index = 0);
+    void sendCstTargetTorque(hint16 target_torque, huint16 pdo_index = 0, bool isSync=true);
 
      /**
      * @brief Sends the target velocity value via a raw CAN frame for CSV mode.
      * @param target_velocity_dps The target velocity in degrees per second.
      * @param pdo_index The RPDO index that was configured (default 0 for RPDO1).
      */
-    void sendCsvTargetVelocity(hreal32 target_velocity_dps, huint16 pdo_index = 0);
+    void sendCsvTargetVelocity(hreal32 target_velocity_dps, huint16 pdo_index = 0, bool isSync=true);
    
+    /**
+     * @brief Configures the motor for Interpolated Position (IP) mode.
+     * @param interpolation_period_ms The time period in milliseconds for interpolation.
+     * @param use_sync Whether to use SYNC message to trigger the movement (true) or let it trigger asynchronously on PDO arrival (false).
+     * @param pdo_index The RPDO index to use for receiving target position (default 0 for RPDO1).
+     * @return True if configuration is successful, false otherwise.
+     */
+    bool configureIpMode(huint8 interpolation_period_ms, huint16 pdo_index = 0, bool use_sync=true);
+
+    /**
+     * @brief Sends the target position value via a raw CAN frame for IP mode.
+     * @param target_angle_deg The target position in degrees.
+     * @param use_sync If this is true, a SYNC message will NOT be sent automatically. You must call sendSync() manually.
+     *                 If false, the PDO itself will trigger the motion.
+     * @param pdo_index The RPDO index that was configured (default 0 for RPDO1).
+     */
+    void sendIpTargetPosition(hreal32 target_angle_deg, huint16 pdo_index = 0, bool isSync=true);   
     /**
      * @brief Broadcasts a SYNC message on the bus to trigger all synced motors.
      */
@@ -211,9 +228,10 @@ private:
     hint32 velocityToPulses(hreal32 dps) const;
     hreal32 pulsesToVelocity(hint32 pps) const;
     huint32 accelerationToPulses(huint32 dpss) const;
-
+    huint32 decelerationToPulses(huint32 dpss) const;
     // Helper for CiA 402 state machine transitions
     bool enableStateMachine();
+    bool resetAndStartNode();
 };
 
 #endif // EUMOTOR_H

@@ -35,6 +35,36 @@ std::mutex CanNetworkManager::mutex_;
 
 
 // --- EuMotorNode Implementation ---
+bool EuMotorNode::moveTo(hreal32 target_angle_deg, huint32 velocity_dps, huint32 acceleration_dpss, huint32 deceleration_dpss) {
+    //TODO: Check if we're already in the correct mode
+    //if (current_mode_ != harmonic_OperateMode_ProfilePosition && !switchMode(harmonic_OperateMode_ProfilePosition)) return false;
+    bool isRelative = false;   // 是否是相对位置
+    bool isImmediately = true; // 是否立即生效
+    bool isUpdate = false;     // 是否采用更新位置模式   
+    return check(harmonic_profilePositionControl(
+        dev_index_, node_id_,
+        angleToPulses(target_angle_deg), velocityToPulses(velocity_dps),
+        accelerationToPulses(acceleration_dpss), decelerationToPulses(deceleration_dpss), isRelative, isImmediately,isUpdate), "Move To Position");
+}
+
+bool EuMotorNode::moveAt(hreal32 target_velocity_dps, huint32 acceleration_dpss,huint32 deceleration_dpss) {
+    //TODO: Check if we're already in the correct mode
+    //if (current_mode_ != harmonic_OperateMode_ProfileVelocity && !switchMode(harmonic_OperateMode_ProfileVelocity)) return false;
+    bool isUpdate = false; // 是否采用更新位置模式
+    return check(harmonic_profileVelocityControl(
+        dev_index_, node_id_,
+        velocityToPulses(target_velocity_dps),
+        accelerationToPulses(acceleration_dpss), decelerationToPulses(deceleration_dpss),isUpdate), "Move At Velocity");
+}
+
+bool EuMotorNode::applyTorque(hint16 target_torque_milli, huint32 torque_slope) {
+    //TODO: Check if we're already in the correct mode
+    //if (current_mode_ != harmonic_OperateMode_ProfileTorque && !switchMode(harmonic_OperateMode_ProfileTorque)) return false;
+    bool isUpdate = false; // 是否采用更新位置模式
+    return check(harmonic_profileTorqueControl(
+        dev_index_, node_id_,
+        target_torque_milli, static_cast<hint16>(torque_slope),isUpdate), "Apply Torque");
+}
 
 EuMotorNode::EuMotorNode(huint8 devIndex, huint8 nodeId, huint32 default_timeout_ms)
     : dev_index_(devIndex), node_id_(nodeId), timeout_ms_(default_timeout_ms) {
@@ -89,6 +119,12 @@ bool EuMotorNode::switchMode(harmonic_OperateMode new_mode) {
     return true;
 }
 
+bool EuMotorNode::resetAndStartNode(){
+    if (!check(harmonic_setNodeState(dev_index_, node_id_, harmonic_NMTState_Reset_Node),"Reset Node")) return false;
+    std::this_thread::sleep_for(std::chrono::milliseconds(50));
+
+    if (!check(harmonic_setNodeState(dev_index_, node_id_, harmonic_NMTState_Start_Node),"Start Node")) return false;
+}
 bool EuMotorNode::enableStateMachine() {
     if (!check(harmonic_setControlword(dev_index_, node_id_, 0x06, timeout_ms_), "State Machine: Shutdown")) return false;
     std::this_thread::sleep_for(std::chrono::milliseconds(20));
@@ -110,28 +146,7 @@ bool EuMotorNode::setAsHome() {
     return check(harmonic_setHomeOffset(dev_index_, node_id_, -current_pos_pulses, timeout_ms_), "Set Home Offset");
 }
 
-bool EuMotorNode::moveTo(hreal32 target_angle_deg, huint32 velocity_dps, huint32 acceleration_dpss) {
-    if (current_mode_ != harmonic_OperateMode_ProfilePosition && !switchMode(harmonic_OperateMode_ProfilePosition)) return false;
-    return check(harmonic_profilePositionControl(
-        dev_index_, node_id_,
-        angleToPulses(target_angle_deg), velocityToPulses(velocity_dps),
-        accelerationToPulses(acceleration_dpss), accelerationToPulses(acceleration_dpss)), "Move To Position");
-}
 
-bool EuMotorNode::moveAt(hreal32 target_velocity_dps, huint32 acceleration_dpss) {
-    if (current_mode_ != harmonic_OperateMode_ProfileVelocity && !switchMode(harmonic_OperateMode_ProfileVelocity)) return false;
-    return check(harmonic_profileVelocityControl(
-        dev_index_, node_id_,
-        velocityToPulses(target_velocity_dps),
-        accelerationToPulses(acceleration_dpss), accelerationToPulses(acceleration_dpss)), "Move At Velocity");
-}
-
-bool EuMotorNode::applyTorque(hint16 target_torque_milli, huint32 torque_slope) {
-    if (current_mode_ != harmonic_OperateMode_ProfileTorque && !switchMode(harmonic_OperateMode_ProfileTorque)) return false;
-    return check(harmonic_profileTorqueControl(
-        dev_index_, node_id_,
-        target_torque_milli, static_cast<hint16>(torque_slope)), "Apply Torque");
-}
 
 bool EuMotorNode::stop() {
     return check(harmonic_stopControl(dev_index_, node_id_), "Stop Control");
@@ -205,6 +220,9 @@ huint32 EuMotorNode::accelerationToPulses(huint32 dpss) const {
     return static_cast<huint32>((static_cast<hreal32>(dpss) / 360.0f) * pulses_per_rev_);
 }
 
+huint32 EuMotorNode::decelerationToPulses(huint32 dpss) const {
+    return static_cast<huint32>((static_cast<hreal32>(dpss) / 360.0f) * pulses_per_rev_);
+}
 
 // Generic read/write templates - require full implementation for all types or a helper map
 template<typename T>
@@ -249,18 +267,21 @@ template huint32 EuMotorNode::read<huint32>(huint16, huint8);
 
 bool EuMotorNode::configureCspMode(huint16 pdo_index) {
     std::cout << "INFO [Motor " << (int)node_id_ << "]: Configuring for CSP mode..." << std::endl;
-    
+    int itpv = 4;        // 插补周期，单位ms
     // Switch to pre-op for configuration
-    if (!check(harmonic_setNodeState(dev_index_, node_id_, harmonic_NMTState_Enter_PreOperational), "CSP: Enter Pre-Op")) return false;
-
-    // 1. Configure RPDO communication type to be synchronous
-    // 0x01 means synchronous cyclic
-    if (!check(harmonic_setRPDOTransmitType(dev_index_, node_id_, pdo_index, 1), "CSP: Set RPDO Type")) return false;
+    //if (!check(harmonic_setNodeState(dev_index_, node_id_, harmonic_NMTState_Enter_PreOperational), "CSP: Enter Pre-Op")) return false;
+    if (!check(harmonic_setOperateMode(dev_index_, node_id_, harmonic_OperateMode_CyclicSyncPosition),"CSP: Switch to CSP")) return false;
+    if (!check(harmonic_setInterpolationTimePeriodValue(dev_index_, node_id_, itpv),"CSP: Set ITPV")) return false;
+    if (!check(harmonic_setSyncCounter(dev_index_, node_id_, 0),"CSP: Set Sync Counter")) return false;
+    if (!check(harmonic_setRPDOCobId(dev_index_, node_id_, 0, (0x80 << 24) + 0x200 + node_id_),"CSP: Set RPDO COB-ID")) return false;
 
     // 2. Map the RPDO to the target position object (0x607A)
     // First, disable mapping by setting count to 0
     if (!check(harmonic_setRPDOMaxMappedCount(dev_index_, node_id_, pdo_index, 0), "CSP: Clear RPDO Map")) return false;
-    
+        // 1. Configure RPDO communication type to be synchronous
+    // 0x01 means synchronous cyclic
+    if (!check(harmonic_setRPDOTransmitType(dev_index_, node_id_, pdo_index, 1), "CSP: Set RPDO Type")) return false;
+
     // Map Target Position (0x607A), 32 bits (0x20)
     huint32 mapping_value = (0x607A << 16) + 0x0020;
     if (!check(harmonic_setRPDOMapped(dev_index_, node_id_, pdo_index, 0, mapping_value), "CSP: Set RPDO Map")) return false;
@@ -268,11 +289,17 @@ bool EuMotorNode::configureCspMode(huint16 pdo_index) {
     // Now, enable mapping by setting count to 1
     if (!check(harmonic_setRPDOMaxMappedCount(dev_index_, node_id_, pdo_index, 1), "CSP: Set RPDO Map Count")) return false;
 
+    if (!check(harmonic_setRPDOCobId(dev_index_, node_id_, 0, 0x200 + node_id_), "CSP: Set RPDO CobId")) return false;
+
+    if (!check(resetAndStartNode(),"CSP: Reset and Start Node")) return false;
+
+    if (!check(enableStateMachine(),"CSP: Enable State Machine")) return false;
     // Finally, set the mode
-    return switchMode(harmonic_OperateMode_CyclicSyncPosition);
+    current_mode_ = harmonic_OperateMode_CyclicSyncPosition;
+    return true;
 }
 
-void EuMotorNode::sendCspTargetPosition(hreal32 target_angle_deg, huint16 pdo_index) {
+void EuMotorNode::sendCspTargetPosition(hreal32 target_angle_deg, huint16 pdo_index, bool isSync) {
     huint16 rpdo_base_cobid = 0x200; // RPDO1 base
     if (pdo_index > 0) {
         rpdo_base_cobid += (pdo_index * 0x100);
@@ -287,6 +314,9 @@ void EuMotorNode::sendCspTargetPosition(hreal32 target_angle_deg, huint16 pdo_in
     data[3] = (pos_pulses >> 24) & 0xFF;
     
     harmonic_writeCanData(dev_index_, rpdo_base_cobid + node_id_, data, 4);
+    if (isSync){
+        sendSync();
+    }
 }
 
 /**
@@ -298,19 +328,21 @@ bool EuMotorNode::configureCstMode(huint8 interpolation_period_ms, huint16 pdo_i
     std::cout << "INFO [Motor " << (int)node_id_ << "]: Configuring for CST mode..." << std::endl;
 
     // Switch to pre-operational state for configuration
-    if (!check(harmonic_setNodeState(dev_index_, node_id_, harmonic_NMTState_Enter_PreOperational), "CST: Enter Pre-Op")) return false;
-    
+    //if (!check(harmonic_setNodeState(dev_index_, node_id_, harmonic_NMTState_Enter_PreOperational), "CST: Enter Pre-Op")) return false;
+    if (!check(harmonic_setOperateMode(dev_index_, node_id_, harmonic_OperateMode_CyclicSyncTorque),"CST: Set Mode")) return false;
     // 1. Set interpolation time period (Object 0x60C2, Sub-index 1)
     if (!check(harmonic_setInterpolationTimePeriodValue(dev_index_, node_id_, interpolation_period_ms), "CST: Set Interpolation Time")) return false;
-
+    if (!check(harmonic_setSyncCounter(dev_index_, node_id_, 0),"CSP: Set Sync Counter")) return false;
+    if (!check(harmonic_setRPDOCobId(dev_index_, node_id_, 0, (0x80 << 24) + 0x200 + node_id_),"CSP: Set RPDO COB-ID")) return false;
+    // First, disable mapping by setting the count to 0
+    if (!check(harmonic_setRPDOMaxMappedCount(dev_index_, node_id_, pdo_index, 0), "CST: Clear RPDO Map")) return false;
+    
     // 2. Configure RPDO communication type to be synchronous cyclic (Type 1)
     // This makes the motor wait for a SYNC message before applying the received torque value.
     if (!check(harmonic_setRPDOTransmitType(dev_index_, node_id_, pdo_index, 1), "CST: Set RPDO Type to Sync")) return false;
 
     // 3. Map the RPDO to the target torque object (0x6071)
-    // First, disable mapping by setting the count to 0
-    if (!check(harmonic_setRPDOMaxMappedCount(dev_index_, node_id_, pdo_index, 0), "CST: Clear RPDO Map")) return false;
-    
+
     // Map Target Torque (Object 0x6071), 16 bits long (0x10)
     // Note: The example code sends 4 bytes, but object 6071h is typically a 16-bit integer (hint16).
     // We will stick to the 16-bit standard which is more common.
@@ -320,16 +352,22 @@ bool EuMotorNode::configureCstMode(huint8 interpolation_period_ms, huint16 pdo_i
     // Now, enable mapping by setting the count back to 1
     if (!check(harmonic_setRPDOMaxMappedCount(dev_index_, node_id_, pdo_index, 1), "CST: Set RPDO Map Count")) return false;
 
+    if (!check(harmonic_setRPDOCobId(dev_index_, node_id_, 0, 0x200 + node_id_), "CSP: Set RPDO CobId")) return false;
+
+    if (!check(resetAndStartNode(),"CSP: Reset and Start Node")) return false;
+
+    if (!check(enableStateMachine(),"CSP: Enable State Machine")) return false;
     // 4. Set the final operation mode and enable the state machine.
     // The switchMode function will handle setting the mode and enabling the controlword state machine.
-    return switchMode(harmonic_OperateMode_CyclicSyncTorque);
+    current_mode_ = harmonic_OperateMode_CyclicSyncTorque;
+    return true;
 }
 
 /**
  * @brief Sends the target torque value for CST mode using a direct CAN write.
  * This should be called in a real-time loop, followed by a sendSync() call.
  */
-void EuMotorNode::sendCstTargetTorque(hint16 target_torque, huint16 pdo_index) {
+void EuMotorNode::sendCstTargetTorque(hint16 target_torque, huint16 pdo_index, bool isSync) {
     // Determine the COB-ID for the RPDO.
     // Default RPDOs are at 0x200, 0x300, 0x400, 0x500 for RPDO 1, 2, 3, 4.
     // So, RPDO index 0 corresponds to RPDO1.
@@ -344,6 +382,9 @@ void EuMotorNode::sendCstTargetTorque(hint16 target_torque, huint16 pdo_index) {
     // Write the data directly to the CAN bus. This is a non-blocking, non-checked call
     // for real-time performance.
     harmonic_writeCanData(dev_index_, cob_id, data, 2);
+    if (isSync){
+        sendSync();
+    }
 }
 
 /**
@@ -355,18 +396,19 @@ bool EuMotorNode::configureCsvMode(huint8 interpolation_period_ms, huint16 pdo_i
     std::cout << "INFO [Motor " << (int)node_id_ << "]: Configuring for CSV mode..." << std::endl;
 
     // Switch to pre-operational state for configuration
-    if (!check(harmonic_setNodeState(dev_index_, node_id_, harmonic_NMTState_Enter_PreOperational), "CSV: Enter Pre-Op")) return false;
-    
+    //if (!check(harmonic_setNodeState(dev_index_, node_id_, harmonic_NMTState_Enter_PreOperational), "CSV: Enter Pre-Op")) return false;
+    if (!check(harmonic_setOperateMode(dev_index_, node_id_, harmonic_OperateMode_CyclicSyncVelocity),"CSV: Set Mode")) return false;    
     // 1. Set interpolation time period (Object 0x60C2, Sub-index 1)
     if (!check(harmonic_setInterpolationTimePeriodValue(dev_index_, node_id_, interpolation_period_ms), "CSV: Set Interpolation Time")) return false;
-
-    // 2. Configure RPDO communication type to be synchronous cyclic (Type 1)
-    if (!check(harmonic_setRPDOTransmitType(dev_index_, node_id_, pdo_index, 1), "CSV: Set RPDO Type to Sync")) return false;
-
-    // 3. Map the RPDO to the target velocity object (0x60FF)
+    if (!check(harmonic_setSyncCounter(dev_index_, node_id_, 0),"CSP: Set Sync Counter")) return false;
+    if (!check(harmonic_setRPDOCobId(dev_index_, node_id_, 0, (0x80 << 24) + 0x200 + node_id_),"CSV: Set RPDO COB-ID")) return false;
     // First, disable mapping by setting the count to 0
     if (!check(harmonic_setRPDOMaxMappedCount(dev_index_, node_id_, pdo_index, 0), "CSV: Clear RPDO Map")) return false;
     
+    // 2. Configure RPDO communication type to be synchronous cyclic (Type 1)
+    if (!check(harmonic_setRPDOTransmitType(dev_index_, node_id_, pdo_index, 1), "CSV: Set RPDO Type to Sync")) return false;
+
+
     // Map Target Velocity (Object 0x60FF), 32 bits long (0x20)
     huint32 mapping_value = (0x60FF << 16) + 0x0020; 
     if (!check(harmonic_setRPDOMapped(dev_index_, node_id_, pdo_index, 0, mapping_value), "CSV: Set RPDO Map to Target Velocity")) return false;
@@ -374,16 +416,22 @@ bool EuMotorNode::configureCsvMode(huint8 interpolation_period_ms, huint16 pdo_i
     // Now, enable mapping by setting the count back to 1
     if (!check(harmonic_setRPDOMaxMappedCount(dev_index_, node_id_, pdo_index, 1), "CSV: Set RPDO Map Count")) return false;
 
+    if (!check(harmonic_setRPDOCobId(dev_index_, node_id_, 0, 0x200 + node_id_), "CSV: Set RPDO CobId")) return false;
+
+    if (!check(resetAndStartNode(),"CSV: Reset and Start Node")) return false;
+
+    if (!check(enableStateMachine(),"CSV: Enable State Machine")) return false;
     // 4. Set the final operation mode and enable the state machine.
     // The switchMode function handles setting the mode and enabling the controlword state machine.
-    return switchMode(harmonic_OperateMode_CyclicSyncVelocity);
+    current_mode_ = harmonic_OperateMode_CyclicSyncVelocity;
+    return true;
 }
 
 /**
  * @brief Sends the target velocity value for CSV mode using a direct CAN write.
  * This should be called in a real-time loop, followed by a sendSync() call.
  */
-void EuMotorNode::sendCsvTargetVelocity(hreal32 target_velocity_dps, huint16 pdo_index) {
+void EuMotorNode::sendCsvTargetVelocity(hreal32 target_velocity_dps, huint16 pdo_index,bool isSync) {
     // Determine the COB-ID for the RPDO.
     // Default RPDOs are at 0x200, 0x300, 0x400, 0x500 for RPDO 1, 2, 3, 4.
     huint32 rpdo_base_cobid = 0x200 + (pdo_index * 0x100);
@@ -401,7 +449,98 @@ void EuMotorNode::sendCsvTargetVelocity(hreal32 target_velocity_dps, huint16 pdo
     
     // Write the data directly to the CAN bus for real-time performance.
     harmonic_writeCanData(dev_index_, cob_id, data, 4);
+    if (isSync){
+        sendSync();
+    }
+}
+
+/**
+ * @brief Configures the motor for Interpolated Position (IP) mode.
+ * This function sets up the necessary PDOs for real-time position control via interpolation.
+ * It follows the logic from the test_ip_mode.cpp example.
+ */
+bool EuMotorNode::configureIpMode(huint8 interpolation_period_ms, huint16 pdo_index, bool use_sync) {
+    std::cout << "INFO [Motor " << (int)node_id_ << "]: Configuring for IP mode..." << std::endl;
+
+    // Determine RPDO transmit type based on sync flag
+    // 0x01: Synchronous cyclic. 0xFF: Asynchronous, event-driven.
+    huint8 rpdo_transmit_type = use_sync ? 0x01 : 0xFF;
+
+    // The example code doesn't switch to Pre-Op, but it's good practice.
+    // However, we will follow the example's flow which configures directly.
+    if (!check(harmonic_setOperateMode(dev_index_, node_id_, harmonic_OperateMode_InterpolatedPosition), "IP: Set Mode")) return false;
+    
+    // 1. Set interpolation time period (Object 0x60C2, Sub-index 1)
+    if (!check(harmonic_setInterpolationTimePeriodValue(dev_index_, node_id_, interpolation_period_ms), "IP: Set Interpolation Time")) return false;
+    
+    // The following settings might be optional or default, but we include them for completeness from the example
+    if (!check(harmonic_setSyncCounter(dev_index_, node_id_, 0), "IP: Set Sync Counter")) return false;
+    
+    // 2. Temporarily disable the RPDO for configuration
+    if (!check(harmonic_setRPDOCobId(dev_index_, node_id_, pdo_index, (0x80 << 24) + 0x200 + node_id_), "IP: Disable RPDO")) return false;
+    
+    // 3. Clear previous mappings
+    if (!check(harmonic_setRPDOMaxMappedCount(dev_index_, node_id_, pdo_index, 0), "IP: Clear RPDO Map")) return false;
+
+    // 4. Set the RPDO transmission type
+    if (!check(harmonic_setRPDOTransmitType(dev_index_, node_id_, pdo_index, rpdo_transmit_type), "IP: Set RPDO Type")) return false;
+
+    // 5. Map the RPDO to the Interpolation data record (0x60C1, sub-index 1)
+    // The example uses (0x60C1 << 16) + 0x0120. 0x01 is sub-index, 0x20 is length (32 bits).
+    // The harmonic_setRPDOMapped function likely handles the sub-index internally based on mapIndex,
+    // so we only need to provide the main index and length.
+    // The object 0x60C1 sub 1 is "Interpolation data 1" which is a 32-bit position value.
+    huint32 mapping_value = (0x60C1 << 16) + 0x0120; // Following example exactly
+    if (!check(harmonic_setRPDOMapped(dev_index_, node_id_, pdo_index, 0, mapping_value), "IP: Set RPDO Map")) return false;
+    
+    // 6. Enable the mapping by setting the count to 1
+    if (!check(harmonic_setRPDOMaxMappedCount(dev_index_, node_id_, pdo_index, 1), "IP: Set RPDO Map Count")) return false;
+
+    // 7. Reset and start the node to apply settings
+    if (!resetAndStartNode()) return false;
+    
+    // 8. Re-enable the RPDO with the correct, active COB-ID
+    if (!check(harmonic_setRPDOCobId(dev_index_, node_id_, pdo_index, 0x200 + node_id_), "IP: Enable RPDO")) return false;
+
+    // 9. Go through the standard state machine
+    if (!enableStateMachine()) return false;
+    
+    // 10. IP mode requires an extra control word (0x1F) to start the interpolator
+    if (!check(harmonic_setControlword(dev_index_, node_id_, 0x1F, timeout_ms_), "IP: Start Interpolator")) return false;
+
+    current_mode_ = harmonic_OperateMode_InterpolatedPosition;
+    return true;
+}
+
+
+/**
+ * @brief Sends the target position for IP mode using a direct CAN write.
+ */
+void EuMotorNode::sendIpTargetPosition(hreal32 target_angle_deg, huint16 pdo_index,bool isSync) {
+    // Determine the COB-ID for the RPDO.
+    huint32 rpdo_base_cobid = 0x200 + (pdo_index * 0x100);
+    huint32 cob_id = rpdo_base_cobid + node_id_;
+
+    // Convert the user-friendly degrees to device-specific pulses
+    hint32 pos_pulses = angleToPulses(target_angle_deg);
+
+    // Prepare the 4-byte payload for the 32-bit position value (little-endian)
+    huint8 data[4];
+    data[0] = pos_pulses & 0xFF;
+    data[1] = (pos_pulses >> 8) & 0xFF;
+    data[2] = (pos_pulses >> 16) & 0xFF;
+    data[3] = (pos_pulses >> 24) & 0xFF;
+    
+    // Write the data directly to the CAN bus.
+    harmonic_writeCanData(dev_index_, cob_id, data, 4);
+
+    // If using synchronous mode, a separate SYNC message is required.
+    // The example code's setPos function sends it, so we replicate that behavior.
+    if (isSync) {
+        sendSync();
+    }
 }
 void EuMotorNode::sendSync() {
-    harmonic_writeCanData(dev_index_, 0x80, nullptr, 0);
+    huint8 data[1] = {0};
+    harmonic_writeCanData(dev_index_, 0x80, data, 1);
 }
