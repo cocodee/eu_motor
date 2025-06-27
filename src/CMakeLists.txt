@@ -9,10 +9,12 @@ if(NOT DEFINED EYOU_LIB_PATH)
 endif()
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${EYOU_LIB_PATH})
 
-add_executable(eu_motor eu_motor.cpp)
+add_library(eu_motor eu_motor.cpp)
+add_executable(test_suite example/test_suite)
 
 if(WIN32)
     target_link_libraries(eu_motor ${EYOU_LIB_PATH}/eu_harmonic.dll)
 elseif(UNIX)
     target_link_libraries(eu_motor ${EYOU_LIB_PATH}/libeu_harmonic.so pthread)
+    target_link_libraries(test_suite ${EYOU_LIB_PATH}/libeu_harmonic.so pthread eu_motor)
 endif()
