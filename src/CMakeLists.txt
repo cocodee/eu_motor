@@ -10,7 +10,7 @@ endif()
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${EYOU_LIB_PATH})
 
 add_library(eu_motor eu_motor.cpp)
-add_executable(test_suite example/test_suite)
+add_executable(test_suite example/test_suite.cpp)
 
 if(WIN32)
     target_link_libraries(eu_motor ${EYOU_LIB_PATH}/eu_harmonic.dll)
