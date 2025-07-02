@@ -273,7 +273,7 @@ MotorFeedbackManager& MotorFeedbackManager::getInstance() {
 }
 
 void MotorFeedbackManager::registerCallback(huint8 devIndex) {
-    harmonic_setReceiveDataCallBack(devIndex, canRecvCallback);
+    harmonic_setReceiveDataCallBack(canRecvCallback);
 }
 
 MotorFeedbackData MotorFeedbackManager::getFeedback(huint8 nodeId) {
