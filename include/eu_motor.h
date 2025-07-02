@@ -281,7 +281,6 @@ public:
      */
     bool startAutoFeedback(huint16 pdo_index = 0, huint8 transmit_type = 254, huint16 event_timer_ms = 100);
     
-    MotorFeedbackData getLatestFeedback();
 private:
     huint8 dev_index_;
     huint8 node_id_;
