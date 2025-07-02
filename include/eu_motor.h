@@ -13,6 +13,58 @@
 #include <map>
 #include <condition_variable>
 
+// --- Data Structures for Feedback ---
+
+/**
+ * @struct MotorFeedbackData
+ * @brief Holds the latest feedback data received from a motor via TPDO.
+ */
+struct MotorFeedbackData {
+    hreal32 position_deg = 0.0f;
+    hreal32 velocity_dps = 0.0f;
+    std::chrono::steady_clock::time_point last_update_time;
+};
+
+// Forward declaration
+class EuMotorNode; 
+
+// --- Managers ---
+
+/**
+ * @class MotorFeedbackManager
+ * @brief Singleton to handle incoming CAN frames and parse motor feedback data.
+ */
+class MotorFeedbackManager {
+public:
+    static MotorFeedbackManager& getInstance();
+
+    // Registers the global callback for a specific CAN device.
+    void registerCallback(huint8 devIndex);
+
+    // Retrieves the latest feedback data for a specific motor.
+    MotorFeedbackData getFeedback(huint8 nodeId);
+
+private:
+    MotorFeedbackManager() = default;
+    ~MotorFeedbackManager() = default;
+    MotorFeedbackManager(const MotorFeedbackManager&) = delete;
+    MotorFeedbackManager& operator=(const MotorFeedbackManager&) = delete;
+
+    // The actual callback function that will be registered with the driver.
+    static void canRecvCallback(huint8 devIndex, harmonic_CanRecvFrame* frame);
+
+    // Helper to convert pulses back to angle/velocity, needs pulses_per_rev
+    static hreal32 pulsesToAngle(hint32 pulses, huint32 pulses_per_rev);
+    static hreal32 pulsesToVelocity(hint32 pps, huint32 pulses_per_rev);
+
+    static std::map<huint8, MotorFeedbackData> feedback_data_;
+    static std::map<huint8, huint32> node_gear_ratios_; // Map node_id to its pulses_per_rev
+    static std::mutex mutex_;
+
+    friend class EuMotorNode; // Allow EuMotorNode to update gear ratios
+};
+
+
 /**
  * @class CanNetworkManager
  * @brief Singleton class to manage the lifecycle of CAN hardware devices.
@@ -149,6 +201,13 @@ public:
     huint16 getErrorCode();     // Returns the last error code.
     harmonic_OperateMode getOperationMode(); // Returns the current operation mode.
 
+    /**
+     * @brief Retrieves the most recent feedback data received via TPDO.
+     * This is a non-blocking call that returns cached data.
+     * @return A struct containing the latest position, velocity, and timestamp.
+     */
+    MotorFeedbackData getLatestFeedback();
+
     // --- Low-level SDO Access ---
 
     template<typename T>
@@ -211,6 +270,16 @@ public:
      * @brief Broadcasts a SYNC message on the bus to trigger all synced motors.
      */
     void sendSync();
+
+    /**
+     * @brief Configures and enables automatic data feedback via TPDO.
+     * The motor will start sending its position and velocity data (8 bytes total).
+     * @param pdo_index The TPDO to use (0-3 for TPDO1-4).
+     * @param transmit_type 254 for event-driven (on change), 255 for event-driven (asynchronous), 1-240 for synchronous (on SYNC).
+     * @param event_timer_ms If transmit_type is 254/255, this sets the minimum time between transmissions in ms.
+     * @return True on success, false on failure.
+     */
+    bool startAutoFeedback(huint16 pdo_index = 0, huint8 transmit_type = 254, huint16 event_timer_ms = 100);
     
 private:
     huint8 dev_index_;

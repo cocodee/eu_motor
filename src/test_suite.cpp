@@ -98,6 +98,41 @@ void test_ip_mode(EuMotorNode& motor) {
     }
 }
 
+void test_feedback_mode(EuMotorNode& motor) {
+    print_header("Automatic Feedback (TPDO)");
+    
+    // Use a shorter event timer for more frequent updates
+    if (motor.startAutoFeedback(0, 254, 20)) {
+        std::cout << "Automatic feedback started. Moving motor to 180 degrees..." << std::endl;
+        motor.enable(harmonic_OperateMode_ProfilePosition);
+        motor.moveTo(180.0f, 90, 500, 500);
+
+        // Poll for feedback for a few seconds while it moves
+        for (int i = 0; i < 50; ++i) {
+            MotorFeedbackData data = motor.getLatestFeedback();
+            auto time_since_update = std::chrono::duration_cast<std::chrono::milliseconds>(
+                std::chrono::steady_clock::now() - data.last_update_time
+            ).count();
+
+            std::cout << "Feedback: Pos=" << data.position_deg 
+                      << " deg, Vel=" << data.velocity_dps 
+                      << " dps (updated " << time_since_update << " ms ago)\r" << std::flush;
+            
+            std::this_thread::sleep_for(std::chrono::milliseconds(50));
+        }
+        std::cout << std::endl; // Newline after the carriage return loop
+        
+        // Wait for move to complete
+        std::this_thread::sleep_for(std::chrono::seconds(2));
+        MotorFeedbackData final_data = motor.getLatestFeedback();
+        std::cout << "Final position from feedback: " << final_data.position_deg << std::endl;
+        std::cout << "Final position from SDO read: " << motor.getPosition() << std::endl;
+
+    } else {
+        std::cerr << "Failed to start feedback mode." << std::endl;
+    }
+}
+
 
 // Function to display help message
 void print_usage(const char* prog_name, const std::map<std::string, std::function<void(EuMotorNode&)>>& tests) {
@@ -119,12 +154,14 @@ int main(int argc, char* argv[]) {
     test_suite["csp"] = test_csp_mode;
     test_suite["cst"] = test_cst_mode;
     test_suite["ip"] = test_ip_mode;
+    test_suite["feedback"] = test_feedback_mode;
 
     // --- Argument Parsing ---
     if (argc < 2 || std::string(argv[1]) == "-h" || std::string(argv[1]) == "--help") {
         print_usage(argv[0], test_suite);
         return 0;
     }
+}
 
     std::vector<std::string> tests_to_run;
     if (std::string(argv[1]) == "all") {
@@ -153,7 +190,7 @@ int main(int argc, char* argv[]) {
         // --- Setup ---
         huint8 devIndex = 0;
         huint8 nodeId = 1;
-        CanNetworkManager::getInstance().initDevice(harmonic_DeviceType_Canable, devIndex, harmonic_Baudrate_1000);
+        CanNetworkManager::getInstance().initDevice(harmonic_DeviceType_Canable, devIndex, harmonic_Baudrate_500);
         
         EuMotorNode motor(devIndex, nodeId);
         std::cout << "Motor Node " << (int)nodeId << " created. Initializing..." << std::endl;
