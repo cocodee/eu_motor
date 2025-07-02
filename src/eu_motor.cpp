@@ -1,4 +1,5 @@
 #include "../include/eu_motor.h"
+#include <cstddef>
 
 // --- CanNetworkManager Implementation ---
 
@@ -272,7 +273,7 @@ MotorFeedbackManager& MotorFeedbackManager::getInstance() {
     return instance;
 }
 
-void MotorFeedbackManager::registerCallback(huint8 devIndex) {
+void MotorFeedbackManager::registerCallback(harmonic_ReceiveDataCallBack canRecvCallback) {
     harmonic_setReceiveDataCallBack(canRecvCallback);
 }
 
@@ -284,7 +285,7 @@ MotorFeedbackData MotorFeedbackManager::getFeedback(huint8 nodeId) {
     return MotorFeedbackData{}; // Return default-initialized struct if no data exists
 }
 
-void MotorFeedbackManager::canRecvCallback(harmonic_CanMsg* frame) {
+void *MotorFeedbackManager::canRecvCallback(int devIndex,harmonic_CanMsg* frame) {
     // This is a static callback, so we access static members.
     // We are interested in TPDOs, which have COB-IDs from 0x181 to 0x480 + node_id
     // TPDO1: 0x180, TPDO2: 0x280, TPDO3: 0x380, TPDO4: 0x480
@@ -296,7 +297,7 @@ void MotorFeedbackManager::canRecvCallback(harmonic_CanMsg* frame) {
         
         // Check if we have gear ratio info for this node
         if (node_gear_ratios_.count(node_id) == 0) {
-            return; // Cannot convert without gear ratio
+            return NULL; // Cannot convert without gear ratio
         }
         huint32 ppr = node_gear_ratios_[node_id];
 
@@ -652,5 +653,9 @@ bool EuMotorNode::startAutoFeedback(huint16 pdo_index, huint8 transmit_type, hui
     return true;
 }
 
+MotorFeedbackData EuMotorNode::getLatestFeedback(){
+    MotorFeedbackManager& feedback_manager_= MotorFeedbackManager.getInstance();
+    return feedback_manager_.getFeedback(node_id_);
+}
 
 // --- End of EuMotorNode Implementation ---

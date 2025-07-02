@@ -39,7 +39,7 @@ public:
     static MotorFeedbackManager& getInstance();
 
     // Registers the global callback for a specific CAN device.
-    void registerCallback(huint8 devIndex);
+    void registerCallback(harmonic_ReceiveDataCallBack canRecvCallback);
 
     // Retrieves the latest feedback data for a specific motor.
     MotorFeedbackData getFeedback(huint8 nodeId);
@@ -51,7 +51,7 @@ private:
     MotorFeedbackManager& operator=(const MotorFeedbackManager&) = delete;
 
     // The actual callback function that will be registered with the driver.
-    static void canRecvCallback(harmonic_CanMsg* frame);
+    static void (*canRecvCallback)(int devIndex,harmonic_CanMsg* frame);
 
     // Helper to convert pulses back to angle/velocity, needs pulses_per_rev
     static hreal32 pulsesToAngle(hint32 pulses, huint32 pulses_per_rev);
@@ -281,6 +281,7 @@ public:
      */
     bool startAutoFeedback(huint16 pdo_index = 0, huint8 transmit_type = 254, huint16 event_timer_ms = 100);
     
+    MotorFeedbackData EuMotorNode::getLatestFeedback();
 private:
     huint8 dev_index_;
     huint8 node_id_;
