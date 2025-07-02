@@ -284,7 +284,7 @@ MotorFeedbackData MotorFeedbackManager::getFeedback(huint8 nodeId) {
     return MotorFeedbackData{}; // Return default-initialized struct if no data exists
 }
 
-void MotorFeedbackManager::canRecvCallback(huint8 devIndex, harmonic_CanMsg* frame) {
+void MotorFeedbackManager::canRecvCallback(harmonic_CanMsg* frame) {
     // This is a static callback, so we access static members.
     // We are interested in TPDOs, which have COB-IDs from 0x181 to 0x480 + node_id
     // TPDO1: 0x180, TPDO2: 0x280, TPDO3: 0x380, TPDO4: 0x480
