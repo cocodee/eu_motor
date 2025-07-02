@@ -319,8 +319,6 @@ void EuMotorNode::sendCspTargetPosition(hreal32 target_angle_deg, huint16 pdo_in
     }
 }
 
-#include "../include/eu_motor.h"
-
 // --- MotorFeedbackManager Implementation ---
 
 MotorFeedbackManager& MotorFeedbackManager::getInstance() {
