@@ -162,7 +162,7 @@ int main(int argc, char* argv[]) {
         print_usage(argv[0], test_suite);
         return 0;
     }
-}
+
 
     std::vector<std::string> tests_to_run;
     if (std::string(argv[1]) == "all") {
