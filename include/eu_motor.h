@@ -39,7 +39,7 @@ public:
     static MotorFeedbackManager& getInstance();
 
     // Registers the global callback for a specific CAN device.
-    void registerCallback(harmonic_ReceiveDataCallBack canRecvCallback);
+    void registerCallback();
 
     // Retrieves the latest feedback data for a specific motor.
     MotorFeedbackData getFeedback(huint8 nodeId);
