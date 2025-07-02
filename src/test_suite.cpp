@@ -100,7 +100,8 @@ void test_ip_mode(EuMotorNode& motor) {
 
 void test_feedback_mode(EuMotorNode& motor) {
     print_header("Automatic Feedback (TPDO)");
-    
+    MotorFeedbackManager& feedback_manager_= MotorFeedbackManager::getInstance();
+    feedback_manager_.registerCallback();
     // Use a shorter event timer for more frequent updates
     if (motor.startAutoFeedback(0, 254, 20)) {
         std::cout << "Automatic feedback started. Moving motor to 180 degrees..." << std::endl;
