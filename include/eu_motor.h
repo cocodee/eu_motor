@@ -51,7 +51,7 @@ private:
     MotorFeedbackManager& operator=(const MotorFeedbackManager&) = delete;
 
     // The actual callback function that will be registered with the driver.
-    static void canRecvCallback(huint8 devIndex, harmonic_CanRecvFrame* frame);
+    static void canRecvCallback(huint8 devIndex, harmonic_CanMsg* frame);
 
     // Helper to convert pulses back to angle/velocity, needs pulses_per_rev
     static hreal32 pulsesToAngle(hint32 pulses, huint32 pulses_per_rev);
