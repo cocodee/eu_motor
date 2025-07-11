@@ -25,15 +25,15 @@ CanNetworkManager::~CanNetworkManager() {
     std::lock_guard<std::mutex> lock(mutex_); 
     for (auto const& [dev_idx, is_init] : initialized_devices_) {
         if (is_init) {
-            std::cout << "CanNetworkManager: Freeing CAN device " << (int)dev_idx << "..." << std::endl;
-            std::cout << "CanNetworkManager: Freeing CAN device " << (int)dev_idx << "..." << std::endl;
+            //std::cout << "CanNetworkManager: Freeing CAN device " << (int)dev_idx << "..." << std::endl;
+            //std::cout << "CanNetworkManager: Freeing CAN device " << (int)dev_idx << "..." << std::endl;
             harmonic_freeDLL(dev_idx);
-            std::cout << "CanNetworkManager: CAN device " << (int)dev_idx << " freed." << std::endl;
+            //std::cout << "CanNetworkManager: CAN device " << (int)dev_idx << " freed." << std::endl;
         }
     }
-    std::cout << "CanNetworkManager: All CAN devices freed." << std::endl;
-    initialized_devices_.clear();
-    std::cout << "CanNetworkManager: All CAN devices cleared." << std::endl;
+    //std::cout << "CanNetworkManager: All CAN devices freed." << std::endl;
+    //initialized_devices_.clear();
+    //std::cout << "CanNetworkManager: All CAN devices cleared." << std::endl;
 }
 
 
@@ -621,7 +621,7 @@ MotorFeedbackData MotorFeedbackManager::getFeedback(huint8 nodeId) {
 }
 
 void emptyCanRecvCallback(int devIndex, const harmonic_CanMsg* frame){
-    std::cout << "INFO [MotorFeedbackManager]: empty callback" << std::endl;
+    //std::cout << "INFO [MotorFeedbackManager]: empty callback" << std::endl;
 }
 
 void validCanRecvCallback(int devIndex, const harmonic_CanMsg* frame){
