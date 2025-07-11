@@ -72,8 +72,11 @@ EuMotorNode::EuMotorNode(huint8 devIndex, huint8 nodeId, huint32 default_timeout
     // Read the gear ratio on construction
     if (!check(harmonic_getGearRatioShaftRevolutions(dev_index_, node_id_, &pulses_per_rev_, timeout_ms_), "Read Initial Gear Ratio")) {
         pulses_per_rev_ = 360000; // Fallback to a sensible default
+        MotorFeedbackManager::getInstance().node_gear_ratios_[node_id_] = pulses_per_rev_;
         std::cerr << "WARNING [Motor " << (int)node_id_ << "]: Failed to read gear ratio. Using default " 
                   << pulses_per_rev_ << ". Call setGearRatio() for accuracy." << std::endl;
+    }else {
+        MotorFeedbackManager::getInstance().node_gear_ratios_[node_id_] = pulses_per_rev_;
     }
 }
 
