@@ -29,7 +29,9 @@ CanNetworkManager::~CanNetworkManager() {
             harmonic_freeDLL(dev_idx);
         }
     }
+    std::cout << "CanNetworkManager: All CAN devices freed." << std::endl;
     initialized_devices_.clear();
+    std::cout << "CanNetworkManager: All CAN devices cleared." << std::endl;
 }
 
 
