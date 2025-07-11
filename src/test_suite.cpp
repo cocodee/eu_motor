@@ -117,7 +117,7 @@ void test_feedback_mode(EuMotorNode& motor) {
 
             std::cout << "Feedback: Pos=" << data.position_deg 
                       << " deg, Vel=" << data.velocity_dps 
-                      << " dps (updated " << time_since_update << " ms ago)";
+                      << " dps (updated " << time_since_update << " ms ago)\r" << std::flush ;
             
             std::this_thread::sleep_for(std::chrono::milliseconds(500));
         }
