@@ -267,73 +267,6 @@ bool EuMotorNode::write(huint16 index, huint8 subIndex, T value) {
 template bool EuMotorNode::write<huint32>(huint16, huint8, huint32);
 template huint32 EuMotorNode::read<huint32>(huint16, huint8);
 // ... add more instantiations as needed
-
-
-// --- MotorFeedbackManager Implementation ---
-
-MotorFeedbackManager& MotorFeedbackManager::getInstance() {
-    static MotorFeedbackManager instance;
-    return instance;
-}
-
-void MotorFeedbackManager::registerCallback() {
-    harmonic_setReceiveDataCallBack(MotorFeedbackManager::canRecvCallback);
-}
-
-MotorFeedbackData MotorFeedbackManager::getFeedback(huint8 nodeId) {
-    // Access member mutex
-    std::lock_guard<std::mutex> lock(mutex_); 
-    if (feedback_data_.count(nodeId)) {
-        return feedback_data_[nodeId];
-    }
-    return MotorFeedbackData{};
-}
-
-void MotorFeedbackManager::canRecvCallback(int devIndex, const harmonic_CanMsg* frame) {
-    // This is a static function, so it needs to get the instance to access members
-    MotorFeedbackManager& instance = getInstance(); 
-
-    huint32 cob_id_base = frame->cob_id & 0xFFFFFF80;
-    huint8 node_id = frame->cob_id & 0x0000007F;
-    if ((cob_id_base >= 0x180 && cob_id_base <= 0x480) && frame->len == 8) {
-        // Lock the instance's mutex
-        std::lock_guard<std::mutex> lock(instance.mutex_);
-        
-        // Access the instance's gear ratio map
-        if (instance.node_gear_ratios_.count(node_id) == 0) {
-            return;
-        }
-        huint32 ppr = instance.node_gear_ratios_[node_id];
-
-        hint32 pos_pulses = (frame->data[3] << 24) | (frame->data[2] << 16) | (frame->data[1] << 8) | frame->data[0];
-        hint32 vel_pulses = (frame->data[7] << 24) | (frame->data[6] << 16) | (frame->data[5] << 8) | frame->data[4];
-
-        // Update the instance's feedback data map
-        instance.feedback_data_[node_id].position_deg = pulsesToAngle(pos_pulses, ppr);
-        instance.feedback_data_[node_id].velocity_dps = pulsesToVelocity(vel_pulses, ppr);
-        instance.feedback_data_[node_id].last_update_time = std::chrono::steady_clock::now();
-    }
-}
-
-void MotorFeedbackManager::setGearRatio(huint8 nodeId, huint32 pulses_per_rev) {
-    // Access member mutex
-    std::lock_guard<std::mutex> lock(mutex_); 
-    node_gear_ratios_[nodeId] = pulses_per_rev;
-}
-hreal32 MotorFeedbackManager::pulsesToAngle(hint32 pulses, huint32 pulses_per_rev) {
-    if (pulses_per_rev == 0) return 0.0f;
-    return (static_cast<hreal32>(pulses) / pulses_per_rev) * 360.0f;
-}
-
-hreal32 MotorFeedbackManager::pulsesToVelocity(hint32 pps, huint32 pulses_per_rev) {
-    if (pulses_per_rev == 0) return 0.0f;
-    return (static_cast<hreal32>(pps) / pulses_per_rev) * 360.0f;
-}
-
-
-
-
-
 bool EuMotorNode::configureCspMode(huint16 pdo_index) {
     std::cout << "INFO [Motor " << (int)node_id_ << "]: Configuring for CSP mode..." << std::endl;
     int itpv = 4;        // 插补周期，单位ms
@@ -662,13 +595,72 @@ MotorFeedbackData EuMotorNode::getLatestFeedback(){
     return feedback_manager_.getFeedback(node_id_);
 }
 
+// --- MotorFeedbackManager Implementation ---
+
+MotorFeedbackManager& MotorFeedbackManager::getInstance() {
+    static MotorFeedbackManager instance;
+    return instance;
+}
+
+void MotorFeedbackManager::registerCallback() {
+    harmonic_setReceiveDataCallBack(MotorFeedbackManager::canRecvCallback);
+}
+
+MotorFeedbackData MotorFeedbackManager::getFeedback(huint8 nodeId) {
+    // Access member mutex
+    std::lock_guard<std::mutex> lock(mutex_); 
+    if (feedback_data_.count(nodeId)) {
+        return feedback_data_[nodeId];
+    }
+    return MotorFeedbackData{};
+}
+
+void emptyCanRecvCallback(int devIndex, const harmonic_CanMsg* frame){
+    std::cout << "INFO [MotorFeedbackManager]: empty callback" << std::endl;
+}
+void MotorFeedbackManager::canRecvCallback(int devIndex, const harmonic_CanMsg* frame) {
+    // This is a static function, so it needs to get the instance to access members
+    MotorFeedbackManager& instance = getInstance(); 
+
+    huint32 cob_id_base = frame->cob_id & 0xFFFFFF80;
+    huint8 node_id = frame->cob_id & 0x0000007F;
+    if ((cob_id_base >= 0x180 && cob_id_base <= 0x480) && frame->len == 8) {
+        // Lock the instance's mutex
+        std::lock_guard<std::mutex> lock(instance.mutex_);
+        
+        // Access the instance's gear ratio map
+        if (instance.node_gear_ratios_.count(node_id) == 0) {
+            return;
+        }
+        huint32 ppr = instance.node_gear_ratios_[node_id];
+
+        hint32 pos_pulses = (frame->data[3] << 24) | (frame->data[2] << 16) | (frame->data[1] << 8) | frame->data[0];
+        hint32 vel_pulses = (frame->data[7] << 24) | (frame->data[6] << 16) | (frame->data[5] << 8) | frame->data[4];
+
+        // Update the instance's feedback data map
+        instance.feedback_data_[node_id].position_deg = pulsesToAngle(pos_pulses, ppr);
+        instance.feedback_data_[node_id].velocity_dps = pulsesToVelocity(vel_pulses, ppr);
+        instance.feedback_data_[node_id].last_update_time = std::chrono::steady_clock::now();
+    }
+}
+
+void MotorFeedbackManager::setGearRatio(huint8 nodeId, huint32 pulses_per_rev) {
+    // Access member mutex
+    std::lock_guard<std::mutex> lock(mutex_); 
+    node_gear_ratios_[nodeId] = pulses_per_rev;
+}
+hreal32 MotorFeedbackManager::pulsesToAngle(hint32 pulses, huint32 pulses_per_rev) {
+    if (pulses_per_rev == 0) return 0.0f;
+    return (static_cast<hreal32>(pulses) / pulses_per_rev) * 360.0f;
+}
+
+hreal32 MotorFeedbackManager::pulsesToVelocity(hint32 pps, huint32 pulses_per_rev) {
+    if (pulses_per_rev == 0) return 0.0f;
+    return (static_cast<hreal32>(pps) / pulses_per_rev) * 360.0f;
+}
+
 MotorFeedbackManager::~MotorFeedbackManager() {
-    // 在实例被销毁前，注销回调函数。
-    // 这确保了即使 harmonic_freeDLL 稍后被调用，
-    // 它也不会再调用一个指向无效逻辑的函数。
-    harmonic_setReceiveDataCallBack(nullptr);
-    // 如果你还注册了 send data callback，也在这里注销
-    harmonic_setSendDataCallBack(nullptr); 
+    harmonic_setReceiveDataCallBack(emptyCanRecvCallback);
 }
 
 // --- End of EuMotorNode Implementation ---
