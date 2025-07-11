@@ -602,6 +602,7 @@ MotorFeedbackData EuMotorNode::getLatestFeedback(){
 // --- MotorFeedbackManager Implementation ---
 
 MotorFeedbackManager& MotorFeedbackManager::getInstance() {
+    CanNetworkManager::getInstance(); 
     static MotorFeedbackManager instance;
     return instance;
 }
