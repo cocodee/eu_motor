@@ -286,14 +286,15 @@ MotorFeedbackData MotorFeedbackManager::getFeedback(huint8 nodeId) {
 }
 
 void MotorFeedbackManager::canRecvCallback(int devIndex,const harmonic_CanMsg* frame) {
-    std::cout << "Received CAN frame: [" << std::hex << frame->cob_id << "]  frame len:" << frame->len << " bytes" << std::endl;
+    std::cout << "Received CAN frame: [" << std::hex << frame->cob_id << "]  frame len:" << std::hex << frame->len << " bytes" << std::endl;
     // This is a static callback, so we access static members.
     // We are interested in TPDOs, which have COB-IDs from 0x181 to 0x480 + node_id
     // TPDO1: 0x180, TPDO2: 0x280, TPDO3: 0x380, TPDO4: 0x480
     huint32 cob_id_base = frame->cob_id & 0xFFFFFF80;
     huint8 node_id = frame->cob_id & 0x0000007F;
-    std::cout << "Node ID: " << node_id << std::endl;
+    std::cout << "Node ID: " << std::dec << node_id << std::endl;
     if ((cob_id_base >= 0x180 && cob_id_base <= 0x480) && frame->len == 8) {
+        std::cout << "Received TPDO frame" << std::endl;
         std::lock_guard<std::mutex> lock(mutex_);
         
         // Check if we have gear ratio info for this node
