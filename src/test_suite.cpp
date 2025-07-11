@@ -128,8 +128,6 @@ void test_feedback_mode(EuMotorNode& motor) {
         MotorFeedbackData final_data = motor.getLatestFeedback();
         std::cout << "Final position from feedback: " << final_data.position_deg << std::endl;
         std::cout << "Final position from SDO read: " << motor.getPosition() << std::endl;
-        harmonic_setReceiveDataCallBack(nullptr); 
-        harmonic_setSendDataCallBack(nullptr);
     } else {
         std::cerr << "Failed to start feedback mode." << std::endl;
     }
