@@ -34,36 +34,36 @@ class EuMotorNode;
  * @class MotorFeedbackManager
  * @brief Singleton to handle incoming CAN frames and parse motor feedback data.
  */
+// in your MotorFeedbackManager class definition
 class MotorFeedbackManager {
 public:
     static MotorFeedbackManager& getInstance();
-
-    // Registers the global callback for a specific CAN device.
     void registerCallback();
-
-    // Retrieves the latest feedback data for a specific motor.
     MotorFeedbackData getFeedback(huint8 nodeId);
 
-private:
-    MotorFeedbackManager() = default;
-    ~MotorFeedbackManager() = default;
+    // Make this public so EuMotorNode can access it
+    std::map<huint8, huint32> node_gear_ratios_;
+
+    // 禁用拷贝和赋值
     MotorFeedbackManager(const MotorFeedbackManager&) = delete;
     MotorFeedbackManager& operator=(const MotorFeedbackManager&) = delete;
 
-    // The actual callback function that will be registered with the driver.
-    static void canRecvCallback(int devIndex,const harmonic_CanMsg* frame);
+    void setGearRatio(huint8 nodeId, huint32 pulses_per_rev);
+private:
+    MotorFeedbackManager() = default;
+    ~MotorFeedbackManager() = default;
 
-    // Helper to convert pulses back to angle/velocity, needs pulses_per_rev
+    // The static callback function remains static
+    static void canRecvCallback(int devIndex, const harmonic_CanMsg* frame);
+
+    // Helper functions can remain static as they don't depend on member state
     static hreal32 pulsesToAngle(hint32 pulses, huint32 pulses_per_rev);
     static hreal32 pulsesToVelocity(hint32 pps, huint32 pulses_per_rev);
 
-    static std::map<huint8, MotorFeedbackData> feedback_data_;
-    static std::map<huint8, huint32> node_gear_ratios_; // Map node_id to its pulses_per_rev
-    static std::mutex mutex_;
-
-    friend class EuMotorNode; // Allow EuMotorNode to update gear ratios
+    // Change static members to regular members
+    std::map<huint8, MotorFeedbackData> feedback_data_;
+    std::mutex mutex_;
 };
-
 
 /**
  * @class CanNetworkManager
@@ -95,8 +95,8 @@ private:
     CanNetworkManager() = default;
     ~CanNetworkManager(); // Destructor will free all initialized devices.
 
-    static std::map<huint8, bool> initialized_devices_;
-    static std::mutex mutex_;
+    std::map<huint8, bool> initialized_devices_;
+    std::mutex mutex_;
 };
 
 

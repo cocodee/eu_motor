@@ -9,7 +9,8 @@ CanNetworkManager& CanNetworkManager::getInstance() {
 }
 
 void CanNetworkManager::initDevice(harmonic_DeviceType devType, huint8 devIndex, harmonic_Baudrate baudrate) {
-    std::lock_guard<std::mutex> lock(mutex_);
+    // 现在访问的是成员变量，用法不变
+    std::lock_guard<std::mutex> lock(mutex_); 
     if (initialized_devices_.find(devIndex) == initialized_devices_.end() || !initialized_devices_[devIndex]) {
         std::cout << "CanNetworkManager: Initializing CAN device " << (int)devIndex << "..." << std::endl;
         if (harmonic_initDLL(devType, devIndex, baudrate) != HARMONIC_SUCCESS) {
@@ -20,7 +21,8 @@ void CanNetworkManager::initDevice(harmonic_DeviceType devType, huint8 devIndex,
 }
 
 CanNetworkManager::~CanNetworkManager() {
-    std::lock_guard<std::mutex> lock(mutex_);
+    // 现在访问的是成员变量，用法不变
+    std::lock_guard<std::mutex> lock(mutex_); 
     for (auto const& [dev_idx, is_init] : initialized_devices_) {
         if (is_init) {
             harmonic_setReceiveDataCallBack(nullptr);
@@ -32,9 +34,6 @@ CanNetworkManager::~CanNetworkManager() {
     initialized_devices_.clear();
 }
 
-// Static member definition
-std::map<huint8, bool> CanNetworkManager::initialized_devices_;
-std::mutex CanNetworkManager::mutex_;
 
 
 // --- EuMotorNode Implementation ---
@@ -74,7 +73,7 @@ EuMotorNode::EuMotorNode(huint8 devIndex, huint8 nodeId, huint32 default_timeout
     // Read the gear ratio on construction
     if (!check(harmonic_getGearRatioShaftRevolutions(dev_index_, node_id_, &pulses_per_rev_, timeout_ms_), "Read Initial Gear Ratio")) {
         pulses_per_rev_ = 360000; // Fallback to a sensible default
-        MotorFeedbackManager::getInstance().node_gear_ratios_[node_id_] = pulses_per_rev_;
+        MotorFeedbackManager::getInstance().setGearRatio(node_id_,pulses_per_rev_);
         std::cerr << "WARNING [Motor " << (int)node_id_ << "]: Failed to read gear ratio. Using default " 
                   << pulses_per_rev_ << ". Call setGearRatio() for accuracy." << std::endl;
     }else {
@@ -284,42 +283,45 @@ void MotorFeedbackManager::registerCallback() {
 }
 
 MotorFeedbackData MotorFeedbackManager::getFeedback(huint8 nodeId) {
-    std::lock_guard<std::mutex> lock(mutex_);
+    // Access member mutex
+    std::lock_guard<std::mutex> lock(mutex_); 
     if (feedback_data_.count(nodeId)) {
         return feedback_data_[nodeId];
     }
-    return MotorFeedbackData{}; // Return default-initialized struct if no data exists
+    return MotorFeedbackData{};
 }
 
-void MotorFeedbackManager::canRecvCallback(int devIndex,const harmonic_CanMsg* frame) {
-    //std::cout << "Received CAN frame: [" << std::hex << frame->cob_id << "]  frame len:" << std::hex << frame->len << " bytes" << std::endl;
-    // This is a static callback, so we access static members.
-    // We are interested in TPDOs, which have COB-IDs from 0x181 to 0x480 + node_id
-    // TPDO1: 0x180, TPDO2: 0x280, TPDO3: 0x380, TPDO4: 0x480
+void MotorFeedbackManager::canRecvCallback(int devIndex, const harmonic_CanMsg* frame) {
+    // This is a static function, so it needs to get the instance to access members
+    MotorFeedbackManager& instance = getInstance(); 
+
     huint32 cob_id_base = frame->cob_id & 0xFFFFFF80;
     huint8 node_id = frame->cob_id & 0x0000007F;
     if ((cob_id_base >= 0x180 && cob_id_base <= 0x480) && frame->len == 8) {
-        //std::cout << "Received TPDO frame" << std::hex << frame->data << std::endl;
-        std::lock_guard<std::mutex> lock(mutex_);
+        // Lock the instance's mutex
+        std::lock_guard<std::mutex> lock(instance.mutex_);
         
-        // Check if we have gear ratio info for this node
-        if (node_gear_ratios_.count(node_id) == 0) {
-            return; // Cannot convert without gear ratio
+        // Access the instance's gear ratio map
+        if (instance.node_gear_ratios_.count(node_id) == 0) {
+            return;
         }
-        huint32 ppr = node_gear_ratios_[node_id];
+        huint32 ppr = instance.node_gear_ratios_[node_id];
 
-        // The data is mapped as:
-        // bytes 0-3: Actual Position (hint32)
-        // bytes 4-7: Actual Velocity (hint32)
         hint32 pos_pulses = (frame->data[3] << 24) | (frame->data[2] << 16) | (frame->data[1] << 8) | frame->data[0];
         hint32 vel_pulses = (frame->data[7] << 24) | (frame->data[6] << 16) | (frame->data[5] << 8) | frame->data[4];
 
-        feedback_data_[node_id].position_deg = pulsesToAngle(pos_pulses, ppr);
-        feedback_data_[node_id].velocity_dps = pulsesToVelocity(vel_pulses, ppr);
-        feedback_data_[node_id].last_update_time = std::chrono::steady_clock::now();
+        // Update the instance's feedback data map
+        instance.feedback_data_[node_id].position_deg = pulsesToAngle(pos_pulses, ppr);
+        instance.feedback_data_[node_id].velocity_dps = pulsesToVelocity(vel_pulses, ppr);
+        instance.feedback_data_[node_id].last_update_time = std::chrono::steady_clock::now();
     }
 }
 
+void MotorFeedbackManager::setGearRatio(huint8 nodeId, huint32 pulses_per_rev) {
+    // Access member mutex
+    std::lock_guard<std::mutex> lock(mutex_); 
+    node_gear_ratios_[nodeId] = pulses_per_rev;
+}
 hreal32 MotorFeedbackManager::pulsesToAngle(hint32 pulses, huint32 pulses_per_rev) {
     if (pulses_per_rev == 0) return 0.0f;
     return (static_cast<hreal32>(pulses) / pulses_per_rev) * 360.0f;
@@ -330,10 +332,7 @@ hreal32 MotorFeedbackManager::pulsesToVelocity(hint32 pps, huint32 pulses_per_re
     return (static_cast<hreal32>(pps) / pulses_per_rev) * 360.0f;
 }
 
-// Static member definitions for MotorFeedbackManager
-std::map<huint8, MotorFeedbackData> MotorFeedbackManager::feedback_data_;
-std::map<huint8, huint32> MotorFeedbackManager::node_gear_ratios_;
-std::mutex MotorFeedbackManager::mutex_;
+
 
 
 
