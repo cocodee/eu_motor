@@ -128,6 +128,7 @@ bool EuMotorNode::resetAndStartNode(){
     std::this_thread::sleep_for(std::chrono::milliseconds(50));
 
     if (!check(harmonic_setNodeState(dev_index_, node_id_, harmonic_NMTState_Start_Node),"Start Node")) return false;
+    return true;
 }
 bool EuMotorNode::enableStateMachine() {
     if (!check(harmonic_setControlword(dev_index_, node_id_, 0x06, timeout_ms_), "State Machine: Shutdown")) return false;
