@@ -137,6 +137,7 @@ int main()
 
     harmonic_setNodeState(devIndex, id, harmonic_NMTState_Reset_Node);
     harmonic_setNodeState(devIndex, id, harmonic_NMTState_Start_Node);
+    std::this_thread::sleep_for(std::chrono::milliseconds(30000));
     harmonic_freeDLL(devIndex);
     return 0;
 }
