@@ -26,7 +26,9 @@ CanNetworkManager::~CanNetworkManager() {
     for (auto const& [dev_idx, is_init] : initialized_devices_) {
         if (is_init) {
             std::cout << "CanNetworkManager: Freeing CAN device " << (int)dev_idx << "..." << std::endl;
+            std::cout << "CanNetworkManager: Freeing CAN device " << (int)dev_idx << "..." << std::endl;
             harmonic_freeDLL(dev_idx);
+            std::cout << "CanNetworkManager: CAN device " << (int)dev_idx << " freed." << std::endl;
         }
     }
     std::cout << "CanNetworkManager: All CAN devices freed." << std::endl;
