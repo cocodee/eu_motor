@@ -103,7 +103,8 @@ void test_feedback_mode(EuMotorNode& motor) {
     MotorFeedbackManager& feedback_manager_= MotorFeedbackManager::getInstance();
     feedback_manager_.registerCallback();
     // Use a shorter event timer for more frequent updates
-    if (motor.startAutoFeedback(0, 254, 20)) {
+    //if (motor.startAutoFeedback(0, 254, 20)) {
+    if (true){
         std::cout << "Automatic feedback started. Moving motor to 180 degrees..." << std::endl;
         //motor.enable(harmonic_OperateMode_ProfilePosition);
         //motor.moveTo(180.0f, 90, 500, 500);
