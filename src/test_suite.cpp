@@ -194,7 +194,8 @@ int main(int argc, char* argv[]) {
         // --- Setup ---
         huint8 devIndex = 0;
         huint8 nodeId = nodeId_;
-        CanNetworkManager::getInstance().initDevice(harmonic_DeviceType_Canable, devIndex, harmonic_Baudrate_1000);
+        CanNetworkManager canNetworkManager;
+        canNetworkManager.initDevice(harmonic_DeviceType_Canable, devIndex, harmonic_Baudrate_1000);
         
         EuMotorNode motor(devIndex, nodeId);
         std::cout << "Motor Node " << (int)nodeId << " created. Initializing..." << std::endl;

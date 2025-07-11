@@ -75,6 +75,8 @@ private:
  */
 class CanNetworkManager {
 public:
+    CanNetworkManager() = default;
+    ~CanNetworkManager(); // Destructor will free all initialized devices.
     // Delete copy and move constructors/assignments
     CanNetworkManager(const CanNetworkManager&) = delete;
     CanNetworkManager& operator=(const CanNetworkManager&) = delete;
@@ -83,7 +85,7 @@ public:
      * @brief Get the single instance of the CanNetworkManager.
      * @return Reference to the CanNetworkManager instance.
      */
-    static CanNetworkManager& getInstance();
+    //static CanNetworkManager& getInstance();
 
     /**
      * @brief Initializes a specific CAN device. Throws std::runtime_error on failure.
@@ -94,8 +96,6 @@ public:
     void initDevice(harmonic_DeviceType devType, huint8 devIndex, harmonic_Baudrate baudrate);
 
 private:
-    CanNetworkManager() = default;
-    ~CanNetworkManager(); // Destructor will free all initialized devices.
 
     std::map<huint8, bool> initialized_devices_;
     std::mutex mutex_;

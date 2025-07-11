@@ -3,11 +3,6 @@
 
 // --- CanNetworkManager Implementation ---
 
-CanNetworkManager& CanNetworkManager::getInstance() {
-    static CanNetworkManager instance;
-    return instance;
-}
-
 void CanNetworkManager::initDevice(harmonic_DeviceType devType, huint8 devIndex, harmonic_Baudrate baudrate) {
     // 现在访问的是成员变量，用法不变
     std::lock_guard<std::mutex> lock(mutex_); 
