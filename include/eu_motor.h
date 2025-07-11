@@ -51,7 +51,7 @@ public:
     void setGearRatio(huint8 nodeId, huint32 pulses_per_rev);
 private:
     MotorFeedbackManager() = default;
-    ~MotorFeedbackManager() = default;
+    ~MotorFeedbackManager();
 
     // The static callback function remains static
     static void canRecvCallback(int devIndex, const harmonic_CanMsg* frame);

@@ -25,8 +25,6 @@ CanNetworkManager::~CanNetworkManager() {
     std::lock_guard<std::mutex> lock(mutex_); 
     for (auto const& [dev_idx, is_init] : initialized_devices_) {
         if (is_init) {
-            harmonic_setReceiveDataCallBack(nullptr);
-            harmonic_setSendDataCallBack(nullptr);
             std::cout << "CanNetworkManager: Freeing CAN device " << (int)dev_idx << "..." << std::endl;
             harmonic_freeDLL(dev_idx);
         }
@@ -662,6 +660,15 @@ bool EuMotorNode::startAutoFeedback(huint16 pdo_index, huint8 transmit_type, hui
 MotorFeedbackData EuMotorNode::getLatestFeedback(){
     MotorFeedbackManager& feedback_manager_= MotorFeedbackManager::getInstance();
     return feedback_manager_.getFeedback(node_id_);
+}
+
+MotorFeedbackManager::~MotorFeedbackManager() {
+    // 在实例被销毁前，注销回调函数。
+    // 这确保了即使 harmonic_freeDLL 稍后被调用，
+    // 它也不会再调用一个指向无效逻辑的函数。
+    harmonic_setReceiveDataCallBack(nullptr);
+    // 如果你还注册了 send data callback，也在这里注销
+    harmonic_setSendDataCallBack(nullptr); 
 }
 
 // --- End of EuMotorNode Implementation ---
