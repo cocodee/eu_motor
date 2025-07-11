@@ -53,7 +53,7 @@ int main()
     // harmonic_setSendDataCallBack(sendCallback);
     // harmonic_setReceiveDataCallBack(receiveCallback);
 
-    int id = 1;
+    int id = 21;
     int autoReportMs = 100;
     for (int index = 0; index < 4; ++index)
     {
