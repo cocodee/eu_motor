@@ -53,7 +53,7 @@ int main()
     // harmonic_setSendDataCallBack(sendCallback);
     // harmonic_setReceiveDataCallBack(receiveCallback);
 
-    int id = 7;
+    int id = 21;
 
     harmonic_NodeState state;
     if (HARMONIC_SUCCESS != harmonic_getNodeState(devIndex, id, &state))
