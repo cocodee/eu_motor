@@ -49,12 +49,14 @@ public:
     MotorFeedbackManager& operator=(const MotorFeedbackManager&) = delete;
 
     void setGearRatio(huint8 nodeId, huint32 pulses_per_rev);
+
+    static void canRecvCallback(int devIndex, const harmonic_CanMsg* frame);
+
 private:
     MotorFeedbackManager() = default;
     ~MotorFeedbackManager();
 
     // The static callback function remains static
-    static void canRecvCallback(int devIndex, const harmonic_CanMsg* frame);
 
     // Helper functions can remain static as they don't depend on member state
     static hreal32 pulsesToAngle(hint32 pulses, huint32 pulses_per_rev);
@@ -302,5 +304,7 @@ private:
     int enableStateMachine();
     int resetAndStartNode();
 };
+
+void validCanRecvCallback(int devIndex, const harmonic_CanMsg* frame);
 
 #endif // EUMOTOR_H

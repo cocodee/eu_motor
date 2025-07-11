@@ -603,7 +603,7 @@ MotorFeedbackManager& MotorFeedbackManager::getInstance() {
 }
 
 void MotorFeedbackManager::registerCallback() {
-    harmonic_setReceiveDataCallBack(MotorFeedbackManager::canRecvCallback);
+    harmonic_setReceiveDataCallBack(validCanRecvCallback);
 }
 
 MotorFeedbackData MotorFeedbackManager::getFeedback(huint8 nodeId) {
@@ -617,6 +617,11 @@ MotorFeedbackData MotorFeedbackManager::getFeedback(huint8 nodeId) {
 
 void emptyCanRecvCallback(int devIndex, const harmonic_CanMsg* frame){
     std::cout << "INFO [MotorFeedbackManager]: empty callback" << std::endl;
+}
+
+void validCanRecvCallback(int devIndex, const harmonic_CanMsg* frame){
+    std::cout << "INFO [MotorFeedbackManager]: valid callback" << std::endl;
+    MotorFeedbackManager::canRecvCallback(devIndex, frame);
 }
 void MotorFeedbackManager::canRecvCallback(int devIndex, const harmonic_CanMsg* frame) {
     // This is a static function, so it needs to get the instance to access members
