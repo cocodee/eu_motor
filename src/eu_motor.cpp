@@ -125,21 +125,21 @@ bool EuMotorNode::switchMode(harmonic_OperateMode new_mode) {
     return true;
 }
 
-bool EuMotorNode::resetAndStartNode(){
-    if (!check(harmonic_setNodeState(dev_index_, node_id_, harmonic_NMTState_Reset_Node),"Reset Node")) return false;
+int EuMotorNode::resetAndStartNode(){
+    if (!check(harmonic_setNodeState(dev_index_, node_id_, harmonic_NMTState_Reset_Node),"Reset Node")) return -1;
     std::this_thread::sleep_for(std::chrono::milliseconds(50));
 
-    if (!check(harmonic_setNodeState(dev_index_, node_id_, harmonic_NMTState_Start_Node),"Start Node")) return false;
-    return true;
+    if (!check(harmonic_setNodeState(dev_index_, node_id_, harmonic_NMTState_Start_Node),"Start Node")) return -1;
+    return HARMONIC_SUCCESS;
 }
-bool EuMotorNode::enableStateMachine() {
-    if (!check(harmonic_setControlword(dev_index_, node_id_, 0x06, timeout_ms_), "State Machine: Shutdown")) return false;
+int EuMotorNode::enableStateMachine() {
+    if (!check(harmonic_setControlword(dev_index_, node_id_, 0x06, timeout_ms_), "State Machine: Shutdown")) return -1;
     std::this_thread::sleep_for(std::chrono::milliseconds(20));
-    if (!check(harmonic_setControlword(dev_index_, node_id_, 0x07, timeout_ms_), "State Machine: Switch On")) return false;
+    if (!check(harmonic_setControlword(dev_index_, node_id_, 0x07, timeout_ms_), "State Machine: Switch On")) return -1;
     std::this_thread::sleep_for(std::chrono::milliseconds(20));
-    if (!check(harmonic_setControlword(dev_index_, node_id_, 0x0F, timeout_ms_), "State Machine: Enable Operation")) return false;
+    if (!check(harmonic_setControlword(dev_index_, node_id_, 0x0F, timeout_ms_), "State Machine: Enable Operation")) return -1;
     std::this_thread::sleep_for(std::chrono::milliseconds(20));
-    return true;
+    return 0;
 }
 
 bool EuMotorNode::setGearRatio(huint32 pulses_per_revolution) {

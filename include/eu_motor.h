@@ -299,8 +299,8 @@ private:
     huint32 accelerationToPulses(huint32 dpss) const;
     huint32 decelerationToPulses(huint32 dpss) const;
     // Helper for CiA 402 state machine transitions
-    bool enableStateMachine();
-    bool resetAndStartNode();
+    int enableStateMachine();
+    int resetAndStartNode();
 };
 
 #endif // EUMOTOR_H
