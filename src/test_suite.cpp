@@ -158,19 +158,23 @@ int main(int argc, char* argv[]) {
     test_suite["feedback"] = test_feedback_mode;
 
     // --- Argument Parsing ---
-    if (argc < 2 || std::string(argv[1]) == "-h" || std::string(argv[1]) == "--help") {
+    if (argc < 4 || std::string(argv[1]) == "-h" || std::string(argv[1]) == "--help") {
         print_usage(argv[0], test_suite);
         return 0;
     }
-
+    
+    int nodeId_ = 1;
+    if (argc > 3 && std::string(argv[1]) == "--dev") {
+        nodeId_ = std::stoi(argv[2]);
+    }
 
     std::vector<std::string> tests_to_run;
-    if (std::string(argv[1]) == "all") {
+    if (std::string(argv[3]) == "all") {
         for (const auto& pair : test_suite) {
             tests_to_run.push_back(pair.first);
         }
     } else {
-        for (int i = 1; i < argc; ++i) {
+        for (int i = 3; i < argc; ++i) {
             std::string test_name = argv[i];
             if (test_suite.find(test_name) != test_suite.end()) {
                 tests_to_run.push_back(test_name);
@@ -190,7 +194,7 @@ int main(int argc, char* argv[]) {
     try {
         // --- Setup ---
         huint8 devIndex = 0;
-        huint8 nodeId = 1;
+        huint8 nodeId = nodeId_;
         CanNetworkManager::getInstance().initDevice(harmonic_DeviceType_Canable, devIndex, harmonic_Baudrate_1000);
         
         EuMotorNode motor(devIndex, nodeId);
