@@ -119,7 +119,7 @@ void test_feedback_mode(EuMotorNode& motor) {
                       << " deg, Vel=" << data.velocity_dps 
                       << " dps (updated " << time_since_update << " ms ago)\r" << std::flush;
             
-            std::this_thread::sleep_for(std::chrono::milliseconds(50));
+            std::this_thread::sleep_for(std::chrono::milliseconds(500));
         }
         std::cout << std::endl; // Newline after the carriage return loop
         
@@ -191,7 +191,7 @@ int main(int argc, char* argv[]) {
         // --- Setup ---
         huint8 devIndex = 0;
         huint8 nodeId = 1;
-        CanNetworkManager::getInstance().initDevice(harmonic_DeviceType_Canable, devIndex, harmonic_Baudrate_500);
+        CanNetworkManager::getInstance().initDevice(harmonic_DeviceType_Canable, devIndex, harmonic_Baudrate_1000);
         
         EuMotorNode motor(devIndex, nodeId);
         std::cout << "Motor Node " << (int)nodeId << " created. Initializing..." << std::endl;
