@@ -111,12 +111,12 @@ bool EuMotorNode::switchMode(harmonic_OperateMode new_mode) {
     if (current_mode_ == new_mode) return true;
     
     std::cout << "INFO [Motor " << (int)node_id_ << "]: Switching mode to " << new_mode << "..." << std::endl;
-    if (!disable()) return false; // Go to a safe, non-operational state
+    //if (!disable()) return false; // Go to a safe, non-operational state
     
-    if (!check(harmonic_setNodeState(dev_index_, node_id_, harmonic_NMTState_Enter_PreOperational), "Enter Pre-Op State")) return false;
-    if (!check(harmonic_setOperateMode(dev_index_, node_id_, new_mode, timeout_ms_), "Set Operate Mode")) return false;
-    if (!enableStateMachine()) return false;
-    if (!check(harmonic_setNodeState(dev_index_, node_id_, harmonic_NMTState_Start_Node), "Enter Operational State")) return false;
+    //if (!check(harmonic_setNodeState(dev_index_, node_id_, harmonic_NMTState_Enter_PreOperational), "Enter Pre-Op State")) return false;
+    //if (!check(harmonic_setOperateMode(dev_index_, node_id_, new_mode, timeout_ms_), "Set Operate Mode")) return false;
+    //if (!enableStateMachine()) return false;
+    //if (!check(harmonic_setNodeState(dev_index_, node_id_, harmonic_NMTState_Start_Node), "Enter Operational State")) return false;
     
     current_mode_ = new_mode;
     return true;
