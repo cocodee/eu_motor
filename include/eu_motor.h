@@ -306,5 +306,5 @@ private:
 };
 
 void validCanRecvCallback(int devIndex, const harmonic_CanMsg* frame);
-
+void emptyCanRecvCallback(int devIndex, const harmonic_CanMsg* frame);
 #endif // EUMOTOR_H

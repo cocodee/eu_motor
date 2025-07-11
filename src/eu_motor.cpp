@@ -619,7 +619,7 @@ void emptyCanRecvCallback(int devIndex, const harmonic_CanMsg* frame){
 }
 
 void validCanRecvCallback(int devIndex, const harmonic_CanMsg* frame){
-    std::cout << "INFO [MotorFeedbackManager]: valid callback" << std::endl;
+    //std::cout << "INFO [MotorFeedbackManager]: valid callback" << std::endl;
     MotorFeedbackManager::canRecvCallback(devIndex, frame);
 }
 void MotorFeedbackManager::canRecvCallback(int devIndex, const harmonic_CanMsg* frame) {
