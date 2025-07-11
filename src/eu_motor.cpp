@@ -23,6 +23,8 @@ CanNetworkManager::~CanNetworkManager() {
     std::lock_guard<std::mutex> lock(mutex_);
     for (auto const& [dev_idx, is_init] : initialized_devices_) {
         if (is_init) {
+            harmonic_setReceiveDataCallBack(nullptr);
+            harmonic_setSendDataCallBack(nullptr);
             std::cout << "CanNetworkManager: Freeing CAN device " << (int)dev_idx << "..." << std::endl;
             harmonic_freeDLL(dev_idx);
         }
