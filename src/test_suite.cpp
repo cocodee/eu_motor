@@ -28,7 +28,7 @@ void test_pp_mode(EuMotorNode& motor) {
         std::cout << "Current Position: " << motor.getPosition() << " degrees" << std::endl;
 
         std::cout << "Moving back to 0 degrees." << std::endl;
-        motor.moveTo(0.0f, 180, 500, 500);
+        motor.moveTo(670.0f, 180, 500, 500);
         std::this_thread::sleep_for(std::chrono::seconds(3));
         std::cout << "Current Position: " << motor.getPosition() << " degrees" << std::endl;
     } else {
