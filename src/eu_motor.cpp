@@ -75,8 +75,9 @@ EuMotorNode::EuMotorNode(huint8 devIndex, huint8 nodeId, huint32 default_timeout
                   << pulses_per_rev_ << ". Call setGearRatio() for accuracy." << std::endl;
     }else {
         MotorFeedbackManager::getInstance().node_gear_ratios_[node_id_] = pulses_per_rev_;
-        std::cout << "INFO [Motor " << (int)node_id_ << "]: Gear ratio set to " << pulses_per_rev_ << "." << std::endl;
+        std::cout << "INFO [Motor] " << (int)node_id_ << "]: Gear ratio set to " << pulses_per_rev_ << "." << std::endl;
     }
+    std::cout << "INFO [Motor " << (int)node_id_ << "]: Initialized." << "pulses_per_rev_:"<<pulses_per_rev_<< std::endl;
 }
 
 bool EuMotorNode::check(int return_code, const std::string& operation_name) const {
