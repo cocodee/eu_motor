@@ -23,12 +23,12 @@ void test_pp_mode(EuMotorNode& motor) {
     print_header("Profile Position (PP) Mode - Single Move");
     if (motor.enable(harmonic_OperateMode_ProfilePosition)) {
         std::cout << "Motor enabled in PP mode. Moving to 90 degrees." << std::endl;
-        motor.moveTo(690.0f, 180, 500, 500);
+        motor.moveTo(90.0f, 180, 500, 500);
         std::this_thread::sleep_for(std::chrono::seconds(3));
         std::cout << "Current Position: " << motor.getPosition() << " degrees" << std::endl;
 
         std::cout << "Moving back to 0 degrees." << std::endl;
-        motor.moveTo(670.0f, 180, 500, 500);
+        motor.moveTo(0.0f, 180, 500, 500);
         std::this_thread::sleep_for(std::chrono::seconds(3));
         std::cout << "Current Position: " << motor.getPosition() << " degrees" << std::endl;
     } else {
