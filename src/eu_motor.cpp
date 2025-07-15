@@ -500,13 +500,13 @@ bool EuMotorNode::configureIpMode(huint8 interpolation_period_ms, huint16 pdo_in
     if (!check(harmonic_setRPDOMaxMappedCount(dev_index_, node_id_, pdo_index, 1), "IP: Set RPDO Map Count")) return false;
 
     // 7. Reset and start the node to apply settings
-    if (!resetAndStartNode()) return false;
-    
+    if (!check(resetAndStartNode(),"IP: Reset and Start Node")) return false;
+
     // 8. Re-enable the RPDO with the correct, active COB-ID
     if (!check(harmonic_setRPDOCobId(dev_index_, node_id_, pdo_index, 0x200 + node_id_), "IP: Enable RPDO")) return false;
 
     // 9. Go through the standard state machine
-    if (!enableStateMachine()) return false;
+    if (!check(enableStateMachine(),"IP Enable State Machine")) return false;    
     
     // 10. IP mode requires an extra control word (0x1F) to start the interpolator
     if (!check(harmonic_setControlword(dev_index_, node_id_, 0x1F, timeout_ms_), "IP: Start Interpolator")) return false;
