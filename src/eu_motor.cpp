@@ -631,6 +631,7 @@ void MotorFeedbackManager::canRecvCallback(int devIndex, const harmonic_CanMsg* 
     huint32 cob_id_base = frame->cob_id & 0xFFFFFF80;
     huint8 node_id = frame->cob_id & 0x0000007F;
     if ((cob_id_base >= 0x180 && cob_id_base <= 0x480) && frame->len == 8) {
+        std::cout << "INFO [MotorFeedbackManager]: Received CAN frame with COB-ID: " << std::hex << frame->cob_id << std::dec << std::endl;
         // Lock the instance's mutex
         std::lock_guard<std::mutex> lock(instance.mutex_);
         
