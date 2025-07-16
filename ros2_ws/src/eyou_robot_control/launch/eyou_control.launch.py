@@ -88,8 +88,8 @@ def generate_launch_description():
                 joint_state_broadcaster_spawner,
                 left_arm_controller_spawner,
                 right_arm_controller_spawner,
-                left_gripper_controller_spawner,
-                right_gripper_controller_spawner,
+                #left_gripper_controller_spawner,
+                #right_gripper_controller_spawner,
             ],
         )
     )
