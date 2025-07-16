@@ -36,7 +36,7 @@
             <plugin>eyou_robot_control/EyouSystemInterface</plugin>
             <!-- Parameters for the CAN device -->
             <param name="can_device_index">0</param>
-            <param name="can_baud_rate">1000000</param>
+            <param name="can_baud_rate">1000</param>
         </hardware>
 
         <!-- Left Arm Joints -->
