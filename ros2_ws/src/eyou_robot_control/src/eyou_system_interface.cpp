@@ -164,8 +164,6 @@ hardware_interface::CallbackReturn EyouSystemInterface::on_deactivate(const rclc
     RCLCPP_INFO(rclcpp::get_logger("EyouSystemInterface"), "Deactivating...");
 
     // Stop processing CAN frames
-    harmonic_setReceiveDataCallBack(emptyCanRecvCallback);
-
     for (const auto& node : motor_nodes_) {
         node->disable();
     }
