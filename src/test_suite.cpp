@@ -145,7 +145,45 @@ void print_usage(const char* prog_name, const std::map<std::string, std::functio
     std::cout << "\nExample: " << prog_name << " pp pv" << std::endl;
 }
 
+void run_test_on_all_motors(const std::string& test_name, 
+                            const std::function<void(EuMotorNode*)>& test_func,
+                            std::vector<std::unique_ptr<EuMotorNode>>& motors) {
+    print_header(test_name);
+    
+    std::vector<std::thread> test_threads;
 
+    // Reset and prepare all motors before starting the test
+    for (auto& motor : motors) {
+        motor->clearFault();
+        motor->disable();
+        std::this_thread::sleep_for(std::chrono::milliseconds(50));
+    }
+    
+    // Launch a thread for each motor to run the test function
+    for (auto& motor : motors) {
+        test_threads.emplace_back(test_func, motor.get());
+    }
+
+    // Special handling for synchronous modes (CSP, CST, etc.)
+    // A master SYNC signal can be sent here if needed.
+    if (test_name == "csp" || test_name == "cst") {
+        std::cout << "Running synchronous test. Master SYNC would be sent from here." << std::endl;
+        // Example: Send SYNC every 4ms for the duration of the test
+        for(int i=0; i<500; ++i) { // 2 seconds duration
+            if(!motors.empty()) motors[0]->sendSync();
+            std::this_thread::sleep_for(std::chrono::milliseconds(4));
+        }
+    }
+
+    // Wait for all threads to complete
+    for (auto& t : test_threads) {
+        if (t.joinable()) {
+            t.join();
+        }
+    }
+    
+    std::cout << "\n--- " << test_name << " test completed for all motors. ---" << std::endl;
+}
 int main(int argc, char* argv[]) {
     // --- Test Suite Definition ---
     std::map<std::string, std::function<void(EuMotorNode&)>> test_suite;
@@ -157,58 +195,77 @@ int main(int argc, char* argv[]) {
     test_suite["feedback"] = test_feedback_mode;
 
     // --- Argument Parsing ---
-    if (argc < 4 || std::string(argv[1]) == "-h" || std::string(argv[1]) == "--help") {
-        print_usage(argv[0], test_suite);
-        return 0;
-    }
-    
-    int nodeId_ = 1;
-    if (argc > 3 && std::string(argv[1]) == "--dev") {
-        nodeId_ = std::stoi(argv[2]);
-    }
-
+    // --- Argument Parsing ---
+    std::vector<huint8> node_ids;
     std::vector<std::string> tests_to_run;
-    if (std::string(argv[3]) == "all") {
-        for (const auto& pair : test_suite) {
-            tests_to_run.push_back(pair.first);
-        }
-    } else {
-        for (int i = 3; i < argc; ++i) {
-            std::string test_name = argv[i];
-            if (test_suite.find(test_name) != test_suite.end()) {
-                tests_to_run.push_back(test_name);
-            } else {
-                std::cerr << "Warning: Test '" << test_name << "' not found. Skipping." << std::endl;
-            }
-        }
-    }
     
-    if (tests_to_run.empty()) {
-        std::cerr << "No valid tests specified." << std::endl;
-        print_usage(argv[0], test_suite);
+    if (argc < 5) {
+        print_usage(argv[0],test_suite);
         return 1;
     }
 
+    int i = 1;
+    while (i < argc) {
+        std::string arg = argv[i];
+        if (arg == "--dev") {
+            i++;
+            while (i < argc && argv[i][0] != '-') {
+                node_ids.push_back(static_cast<huint8>(std::stoi(argv[i])));
+                i++;
+            }
+        } else if (arg == "--tests") {
+            i++;
+            if (i < argc && std::string(argv[i]) == "all") {
+                for (const auto& pair : test_suite) {
+                    tests_to_run.push_back(pair.first);
+                }
+                i++;
+            } else {
+                while (i < argc && argv[i][0] != '-') {
+                    if (test_suite.count(argv[i])) {
+                        tests_to_run.push_back(argv[i]);
+                    } else {
+                        std::cerr << "Warning: Test '" << argv[i] << "' not found. Skipping." << std::endl;
+                    }
+                    i++;
+                }
+            }
+        } else {
+            i++;
+        }
+    }
+
+    if (node_ids.empty() || tests_to_run.empty()) {
+        std::cerr << "Error: You must specify at least one device ID and one test." << std::endl;
+        print_usage(argv[0],test_suite);
+        return 1;
+    }
 
     try {
         // --- Setup ---
         huint8 devIndex = 0;
-        huint8 nodeId = nodeId_;
         CanNetworkManager canNetworkManager;
         canNetworkManager.initDevice(harmonic_DeviceType_Canable, devIndex, harmonic_Baudrate_1000);
         
-        EuMotorNode motor(devIndex, nodeId);
-        std::cout << "Motor Node " << (int)nodeId << " created. Initializing..." << std::endl;
+        std::vector<std::unique_ptr<EuMotorNode>> motors;
+        std::cout << "Creating motor nodes for IDs: ";
+        for (huint8 id : node_ids) {
+            std::cout << (int)id << " ";
+            motors.emplace_back(std::make_unique<EuMotorNode>(devIndex, id));
+        }
+        std::cout << std::endl;
 
         // --- Run Selected Tests ---
+        // --- Run Selected Tests ---
         for (const auto& test_name : tests_to_run) {
-            // Reset motor state before each test for consistency
-            motor.clearFault();
-            motor.disable();
-            std::this_thread::sleep_for(std::chrono::milliseconds(100)); // give it a moment to settle
+            run_test_on_all_motors(test_name, test_suite[test_name], motors);
+            std::this_thread::sleep_for(std::chrono::seconds(2)); // Pause between tests
+        }
 
-            // Run the test function
-            test_suite[test_name](motor);
+        // --- Cleanup ---
+        std::cout << "\n\nAll specified tests completed." << std::endl;
+        for (auto& motor : motors) {
+            motor->disable();
         }
 
         // --- Cleanup ---
