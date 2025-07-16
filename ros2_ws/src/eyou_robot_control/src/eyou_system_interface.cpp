@@ -46,6 +46,7 @@ hardware_interface::CallbackReturn EyouSystemInterface::on_init(const hardware_i
     hw_commands_positions_.resize(info_.joints.size(), 0.0);
     hw_states_positions_.resize(info_.joints.size(), 0.0);
     hw_states_velocities_.resize(info_.joints.size(), 0.0);
+    hw_start_enabled_.resize(info_.joints.size(), true);
 
     // Initialize CAN bus
     can_manager_ = std::make_unique<CanNetworkManager>();
@@ -63,6 +64,16 @@ hardware_interface::CallbackReturn EyouSystemInterface::on_init(const hardware_i
         huint8 node_id = std::stoi(info_.joints[i].parameters.at("node_id"));
         RCLCPP_INFO(rclcpp::get_logger("EyouSystemInterface"), "Initializing motor for joint '%s' with Node ID %d", info_.joints[i].name.c_str(), node_id);
         motor_nodes_[i] = std::make_shared<EuMotorNode>(can_device_index_, node_id);
+
+        // Check for start_enabled parameter
+        if (info_.joints[i].parameters.find("start_enabled") != info_.joints[i].parameters.end()) {
+            std::string start_enabled_str = info_.joints[i].parameters.at("start_enabled");
+            std::transform(start_enabled_str.begin(), start_enabled_str.end(), start_enabled_str.begin(), ::tolower);
+            if (start_enabled_str == "false") {
+                hw_start_enabled_[i] = false;
+                RCLCPP_INFO(rclcpp::get_logger("EyouSystemInterface"), "Joint '%s' is configured to be disabled on start.", info_.joints[i].name.c_str());
+            }
+        }
     }
 
     RCLCPP_INFO(rclcpp::get_logger("EyouSystemInterface"), "Initialization successful.");
@@ -111,19 +122,33 @@ hardware_interface::CallbackReturn EyouSystemInterface::on_activate(const rclcpp
 
     // Configure and enable motors
     for (size_t i = 0; i < motor_nodes_.size(); ++i) {
-        RCLCPP_INFO(rclcpp::get_logger("EyouSystemInterface"), "Enabling motor for joint %s...", info_.joints[i].name.c_str());
-        if (!motor_nodes_[i]->clearFault()) {
-             RCLCPP_ERROR(rclcpp::get_logger("EyouSystemInterface"), "Failed to clear fault for joint %s", info_.joints[i].name.c_str());
-             return hardware_interface::CallbackReturn::ERROR;
-        }
-        if (!motor_nodes_[i]->configureCspMode()) {
-            RCLCPP_ERROR(rclcpp::get_logger("EyouSystemInterface"), "Failed to configure CSP mode for joint %s", info_.joints[i].name.c_str());
-            return hardware_interface::CallbackReturn::ERROR;
-        }
-        // Configure TPDO1 for feedback every 10ms
-        if (!motor_nodes_[i]->startAutoFeedback(0, 255, 10)) {
-            RCLCPP_ERROR(rclcpp::get_logger("EyouSystemInterface"), "Failed to start auto feedback for joint %s", info_.joints[i].name.c_str());
-            return hardware_interface::CallbackReturn::ERROR;
+        if (hw_start_enabled_[i]) {
+            RCLCPP_INFO(rclcpp::get_logger("EyouSystemInterface"), "Enabling motor for joint %s...", info_.joints[i].name.c_str());
+            if (!motor_nodes_[i]->clearFault()) {
+                RCLCPP_ERROR(rclcpp::get_logger("EyouSystemInterface"), "Failed to clear fault for joint %s", info_.joints[i].name.c_str());
+                return hardware_interface::CallbackReturn::ERROR;
+            }
+            if (!motor_nodes_[i]->configureCspMode()) {
+                RCLCPP_ERROR(rclcpp::get_logger("EyouSystemInterface"), "Failed to configure CSP mode for joint %s", info_.joints[i].name.c_str());
+                return hardware_interface::CallbackReturn::ERROR;
+            }
+            // Configure TPDO1 for feedback every 10ms
+            if (!motor_nodes_[i]->startAutoFeedback(0, 255, 10)) {
+                RCLCPP_ERROR(rclcpp::get_logger("EyouSystemInterface"), "Failed to start auto feedback for joint %s", info_.joints[i].name.c_str());
+                return hardware_interface::CallbackReturn::ERROR;
+            }
+        } else {
+            RCLCPP_INFO(rclcpp::get_logger("EyouSystemInterface"), "Skipping activation for joint %s as it is disabled.", info_.joints[i].name.c_str());
+            motor_nodes_[i]->disable();
+            if (!motor_nodes_[i]->clearFault()) {
+                RCLCPP_ERROR(rclcpp::get_logger("EyouSystemInterface"), "Failed to clear fault for joint %s", info_.joints[i].name.c_str());
+                return hardware_interface::CallbackReturn::ERROR;
+            }            
+            // Configure TPDO1 for feedback every 10ms
+            if (!motor_nodes_[i]->startAutoFeedback(0, 255, 10)) {
+                RCLCPP_ERROR(rclcpp::get_logger("EyouSystemInterface"), "Failed to start auto feedback for joint %s", info_.joints[i].name.c_str());
+                return hardware_interface::CallbackReturn::ERROR;
+            }
         }
     }
     
@@ -166,15 +191,25 @@ hardware_interface::return_type EyouSystemInterface::read(const rclcpp::Time & /
 
 hardware_interface::return_type EyouSystemInterface::write(const rclcpp::Time & /*time*/, const rclcpp::Duration & /*period*/)
 {
+    bool any_motor_enabled = false;
     for (size_t i = 0; i < motor_nodes_.size(); ++i) {
-        // The sendCspTargetPosition function does not send the SYNC message itself.
-        motor_nodes_[i]->sendCspTargetPosition(hw_commands_positions_[i], 0, false);
+        if (hw_start_enabled_[i]) {
+            // The sendCspTargetPosition function does not send the SYNC message itself.
+            motor_nodes_[i]->sendCspTargetPosition(hw_commands_positions_[i], 0, false);
+            any_motor_enabled = true;
+        }
     }
 
     // After sending all position targets, send a single SYNC message
     // to make all motors execute their received command simultaneously.
-    if (!motor_nodes_.empty()) {
-        motor_nodes_[0]->sendSync();
+    if (any_motor_enabled) {
+        // Find the first enabled motor to send the SYNC command
+        for (size_t i = 0; i < motor_nodes_.size(); ++i) {
+            if (hw_start_enabled_[i]) {
+                motor_nodes_[i]->sendSync();
+                break;
+            }
+        }
     }
 
     return hardware_interface::return_type::OK;

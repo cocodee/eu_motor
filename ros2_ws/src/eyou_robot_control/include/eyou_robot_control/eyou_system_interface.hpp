@@ -46,6 +46,7 @@ private:
     // Parameters from URDF
     int can_device_index_;
     long long can_baud_rate_;
+    std::vector<bool> hw_start_enabled_;
 };
 
 }  // namespace eyou_robot_control
