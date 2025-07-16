@@ -30,6 +30,8 @@ ament_target_dependencies(eyou_system_interface PUBLIC
   pluginlib
   # TODO: Add the library for your actual SDK here
   # e.g., /path/to/your/eyou_sdk/lib/libeyou_sdk.so
+  /usr/lib/lib_eumotor.so
+  /usr/lib/libeu_harmonic.so
 )
 
 # Export the plugin
