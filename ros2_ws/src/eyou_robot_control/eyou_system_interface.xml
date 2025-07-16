@@ -1,0 +1,9 @@
+<library path="eyou_system_interface">
+  <class name="eyou_robot_control/EyouSystemInterface"
+         type="eyou_robot_control::EyouSystemInterface"
+         base_class_type="hardware_interface::SystemInterface">
+    <description>
+      ROS2 control hardware interface for the Eyou actuator SDK.
+    </description>
+  </class>
+</library>
