@@ -146,7 +146,7 @@ void print_usage(const char* prog_name, const std::map<std::string, std::functio
 }
 
 void run_test_on_all_motors(const std::string& test_name, 
-                            const std::function<void(EuMotorNode*)>& test_func,
+                           const std::function<void(EuMotorNode&)>& test_func,
                             std::vector<std::unique_ptr<EuMotorNode>>& motors) {
     print_header(test_name);
     
@@ -161,7 +161,7 @@ void run_test_on_all_motors(const std::string& test_name,
     
     // Launch a thread for each motor to run the test function
     for (auto& motor : motors) {
-        test_threads.emplace_back(test_func, motor.get());
+        test_threads.emplace_back(test_func, std::ref(*motor));
     }
 
     // Special handling for synchronous modes (CSP, CST, etc.)
@@ -269,8 +269,12 @@ int main(int argc, char* argv[]) {
         }
 
         // --- Cleanup ---
-        std::cout << "\n\nAll specified tests completed." << std::endl;
-        motor.disable(); // Final disable
+        std::cout << "\n\nAll specified tests completed. Disabling all motors..." << std::endl;
+        for (auto& motor_ptr : motors) { // 使用一个不同的循环变量名，比如 motor_ptr
+            if (motor_ptr) { // 检查指针是否有效
+                motor_ptr->disable();
+            }
+        }
 
     } catch (const std::exception& e) {
         std::cerr << "\nAn unrecoverable error occurred: " << e.what() << std::endl;
