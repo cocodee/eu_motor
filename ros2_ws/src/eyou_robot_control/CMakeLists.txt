@@ -14,6 +14,15 @@ find_package(ros2_control REQUIRED)
 find_package(ros2_controllers REQUIRED)
 find_package(xacro REQUIRED)
 
+# Find the pre-compiled Eyou motor library
+find_library(EUMOTOR_LIBRARY
+  NAMES eu_motor  # CMake automatically adds 'lib' prefix and '.so' suffix
+  PATHS /usr/lib
+)
+
+if(NOT EUMOTOR_LIBRARY)
+  message(FATAL_ERROR "Eyou motor library (libeu_motor.so) not found in /usr/lib")
+endif()
 # Add the C++ library for the hardware interface
 add_library(eyou_system_interface SHARED
   src/eyou_system_interface.cpp
@@ -30,10 +39,13 @@ ament_target_dependencies(eyou_system_interface PUBLIC
   pluginlib
   # TODO: Add the library for your actual SDK here
   # e.g., /path/to/your/eyou_sdk/lib/libeyou_sdk.so
-  /usr/lib/libeu_motor.so
-  /usr/lib/libeu_harmonic.so
 )
 
+target_link_libraries(eyou_system_interface
+  PRIVATE
+  ${ament_auto_dependencies}
+  ${EUMOTOR_LIBRARY}
+)
 # Export the plugin
 pluginlib_export_plugin_description_file(hardware_interface eyou_system_interface.xml)
 
