@@ -13,11 +13,11 @@ controller_manager:
       type: joint_trajectory_controller/JointTrajectoryController
 
     # Controller for the grippers (using a simpler controller)
-    left_gripper_controller:
-      type: position_controllers/GripperActionController
+    #left_gripper_controller:
+    #  type: position_controllers/GripperActionController
 
-    right_gripper_controller:
-      type: position_controllers/GripperActionController
+    #right_gripper_controller:
+    #  type: position_controllers/GripperActionController
 
     # Broadcaster for joint states
     joint_state_broadcaster:
@@ -33,6 +33,7 @@ left_arm_controller:
       - left_arm_joint_4
       - left_arm_joint_5
       - left_arm_joint_6
+      - left_arm_joint_7
     command_interfaces:
       - position
     state_interfaces:
@@ -49,6 +50,7 @@ right_arm_controller:
       - right_arm_joint_4
       - right_arm_joint_5
       - right_arm_joint_6
+      - right_arm_joint_7
     command_interfaces:
       - position
     state_interfaces:
