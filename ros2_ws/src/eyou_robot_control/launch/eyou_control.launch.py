@@ -67,18 +67,18 @@ def generate_launch_description():
     )
 
     # Left gripper controller spawner
-    left_gripper_controller_spawner = Node(
-        package="controller_manager",
-        executable="spawner",
-        arguments=["left_gripper_controller", "--controller-manager", "/controller_manager"],
-    )
+    #left_gripper_controller_spawner = Node(
+    #    package="controller_manager",
+    #    executable="spawner",
+    #    arguments=["left_gripper_controller", "--controller-manager", "/controller_manager"],
+    #)
 
     # Right gripper controller spawner
-    right_gripper_controller_spawner = Node(
-        package="controller_manager",
-        executable="spawner",
-        arguments=["right_gripper_controller", "--controller-manager", "/controller_manager"],
-    )
+    #right_gripper_controller_spawner = Node(
+    #    package="controller_manager",
+    #    executable="spawner",
+    #    arguments=["right_gripper_controller", "--controller-manager", "/controller_manager"],
+    #)
 
     # Delay start of spawners until controller_manager is running
     delay_spawners_after_controller_manager = RegisterEventHandler(
