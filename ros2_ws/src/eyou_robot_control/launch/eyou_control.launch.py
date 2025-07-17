@@ -82,9 +82,9 @@ def generate_launch_description():
 
     # Delay start of spawners until controller_manager is running
     delay_spawners_after_controller_manager = RegisterEventHandler(
-        event_handler=OnProcessExit(
+        event_handler= OnProcessStart(
             target_action=controller_manager_node,
-            on_exit=[
+            on_start=[
                 joint_state_broadcaster_spawner,
                 left_arm_controller_spawner,
                 right_arm_controller_spawner,
