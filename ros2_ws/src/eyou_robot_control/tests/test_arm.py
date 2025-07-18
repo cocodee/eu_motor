@@ -21,8 +21,9 @@ class TrajectoryTestClient(Node):
             'right_arm_joint_4', 'right_arm_joint_5', 'right_arm_joint_6', 'right_arm_joint_7'
         ]
         point = JointTrajectoryPoint()
-        point.positions = [0.2, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0] # 让第一个关节小范围移动
-        point.time_from_start = Duration(sec=5, nanosec=0)
+        #point.positions = [0.2, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0] # 让第一个关节小范围移动
+        point.positions = [10, 20, 10, 0.0, 0.0, 0.0, 0.0] # 让第一个关节小范围移动
+        point.time_from_start = Duration(sec=2, nanosec=100000000)
         trajectory.points.append(point)
         goal_msg.trajectory = trajectory
 
