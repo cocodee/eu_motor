@@ -22,7 +22,7 @@ class TrajectoryTestClient(Node):
         ]
         point = JointTrajectoryPoint()
         #point.positions = [0.2, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0] # 让第一个关节小范围移动
-        point.positions = [10, 20, 10, 0.0, 0.0, 0.0, 0.0] # 让第一个关节小范围移动
+        point.positions = [10.0, 20.0, 10.0, 0.0, 0.0, 0.0, 0.0] # 让第一个关节小范围移动
         point.time_from_start = Duration(sec=2, nanosec=100000000)
         trajectory.points.append(point)
         goal_msg.trajectory = trajectory
