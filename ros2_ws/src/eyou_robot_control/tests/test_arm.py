@@ -10,15 +10,15 @@ class TrajectoryTestClient(Node):
     def __init__(self):
         super().__init__('trajectory_test_client')
         # 确认控制器名称与YAML文件一致
-        self._action_client = ActionClient(self, FollowJointTrajectory, '/left_arm_controller/follow_joint_trajectory')
+        self._action_client = ActionClient(self, FollowJointTrajectory, '/right_arm_controller/follow_joint_trajectory')
 
     def send_goal(self):
         goal_msg = FollowJointTrajectory.Goal()
         trajectory = JointTrajectory()
         # 确保关节名称顺序与控制器配置一致
         trajectory.joint_names = [
-            'left_arm_joint_1', 'left_arm_joint_2', 'left_arm_joint_3',
-            'left_arm_joint_4', 'left_arm_joint_5', 'left_arm_joint_6', 'left_arm_joint_7'
+            'right_arm_joint_1', 'right_arm_joint_2', 'right_arm_joint_3',
+            'right_arm_joint_4', 'right_arm_joint_5', 'right_arm_joint_6', 'right_arm_joint_7'
         ]
         point = JointTrajectoryPoint()
         point.positions = [0.2, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0] # 让第一个关节小范围移动
@@ -26,7 +26,7 @@ class TrajectoryTestClient(Node):
         trajectory.points.append(point)
         goal_msg.trajectory = trajectory
 
-        self.get_logger().info('Sending goal to left arm...')
+        self.get_logger().info('Sending goal to right arm...')
         self._action_client.wait_for_server()
         self._action_client.send_goal_async(goal_msg)
         self.get_logger().info('Goal sent.')
