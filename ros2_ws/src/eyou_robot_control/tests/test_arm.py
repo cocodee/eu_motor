@@ -5,6 +5,7 @@ from rclpy.node import Node
 from control_msgs.action import FollowJointTrajectory
 from trajectory_msgs.msg import JointTrajectory, JointTrajectoryPoint
 from builtin_interfaces.msg import Duration
+from std_msgs.msg import Float64MultiArray
 
 class TrajectoryTestClient(Node):
     def __init__(self):
@@ -33,10 +34,27 @@ class TrajectoryTestClient(Node):
         self.get_logger().info('Goal sent.')
         rclpy.shutdown()
 
-def main(args=None):
-    rclpy.init(args=args)
+def test_trajectory():
     action_client = TrajectoryTestClient()
     action_client.send_goal()
+
+def test_position():
+    node = TrajectoryTestClient()
+    topic_name = "/right_arm_controller/commands"
+    publisher = node.create_publisher(Float64MultiArray, topic_name, 10)
+    msg = Float64MultiArray()
+
+        # 3. 填充消息数据
+        # -----------------
+        # 将 Python 列表赋值给消息的 data 字段。
+    msg.data = [10.0, 20.0, 10.0, 0.0, 0.0, 0.0, 0.0]
+
+        # 4. 发布消息
+        # -------------
+    publisher.publish(msg)
+def main(args=None):
+    rclpy.init(args=args)
+    test_position()
     # 短暂等待确保消息发出
     # 在实际应用中，你会处理 action 的 future 和 result
     # rclpy.spin(action_client)
