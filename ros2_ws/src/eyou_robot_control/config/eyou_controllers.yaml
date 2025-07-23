@@ -6,11 +6,11 @@ controller_manager:
 
     # Controller for the left arm
     left_arm_controller:
-      type: joint_trajectory_controller/JointTrajectoryController
+      type: position_controllers/JointGroupPositionController
 
     # Controller for the right arm
     right_arm_controller:
-      type: joint_trajectory_controller/JointTrajectoryController
+      type: position_controllers/JointGroupPositionController
 
     # Controller for the grippers (using a simpler controller)
     #left_gripper_controller:
@@ -34,11 +34,7 @@ left_arm_controller:
       - left_arm_joint_5
       - left_arm_joint_6
       - left_arm_joint_7
-    command_interfaces:
-      - position
-    state_interfaces:
-      - position
-      - velocity
+    interface_name: "position"
 
 # Parameters for the right arm controller
 right_arm_controller:
@@ -51,11 +47,7 @@ right_arm_controller:
       - right_arm_joint_5
       - right_arm_joint_6
       - right_arm_joint_7
-    command_interfaces:
-      - position
-    state_interfaces:
-      - position
-      - velocity
+    interface_name: "position"
 
 # Parameters for the left gripper controller
 left_gripper_controller:
