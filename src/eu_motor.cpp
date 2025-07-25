@@ -561,6 +561,7 @@ void EuMotorNode::sendSync() {
 
 bool EuMotorNode::startAutoFeedback(huint16 pdo_index, huint8 transmit_type, huint16 event_timer_ms) {
     std::cout << "INFO [Motor " << (int)node_id_ << "]: Configuring automatic feedback (TPDO" << pdo_index + 1 << ")..." << std::endl;
+    std::cout << "INFO [Motor " << (int)node_id_ << "]: Configuring automatic feedback transmit type "<< transmit_type << " ..." << std::endl;
 
     // TPDOs must be configured in Pre-Operational state
     if (!check(harmonic_setNodeState(dev_index_, node_id_, harmonic_NMTState_Enter_PreOperational), "Feedback: Enter Pre-Op")) return false;
@@ -584,6 +585,9 @@ bool EuMotorNode::startAutoFeedback(huint16 pdo_index, huint8 transmit_type, hui
     if (!check(harmonic_setTPDOMaxMappedCount(dev_index_, node_id_, pdo_index, 2), "Feedback: Set TPDO Map Count")) return false;
 
     // 5. Set the transmission type
+    // 0 = Synchronous,event driven
+    // 1 = Synchronous,periodic
+    // 2-253 = Synchronous, send per n syncs
     // 254 = Event-driven, on change. 255 = Event-driven, asynchronous. 1-240 = Synchronous on SYNC.
     if (!check(harmonic_setTPDOTransmitType(dev_index_, node_id_, pdo_index, transmit_type), "Feedback: Set Transmit Type")) return false;
 
