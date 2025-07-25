@@ -648,15 +648,17 @@ void MotorFeedbackManager::canRecvCallback(int devIndex, const harmonic_CanMsg* 
     // This is a static function, so it needs to get the instance to access members
     MotorFeedbackManager& instance = getInstance(); 
 
-    huint32 cob_id_base = frame->cob_id & 0xFFFFFF80;
-    huint8 node_id = frame->cob_id & 0x0000007F;
-    if ((cob_id_base >= 0x180 && cob_id_base <= 0x279) && frame->len == 8) {
-        // std::cout << "INFO [MotorFeedbackManager]: Received CAN frame with COB-ID: " << std::hex << frame->cob_id << std::dec << std::endl;
+    huint32 function_code = frame->cob_id & 0x780;
+    
+    if ((frame->cob_id >= 0x181 && frame->cob_id <= 0x1FF) && frame->len == 8) {
+        std::cout << "INFO [MotorFeedbackManager]: Received CAN frame with COB-ID: " << std::hex << frame->cob_id << std::dec << std::endl;
+        huint8 node_id = frame->cob_id & 0x0000007F;
         // Lock the instance's mutex
         std::lock_guard<std::mutex> lock(instance.mutex_);
         
         // Access the instance's gear ratio map
         if (instance.node_gear_ratios_.count(node_id) == 0) {
+            std::cerr << "Warning: Ignoring TPDO1 from unregistered node " << (int)node_id << std::endl;
             return;
         }
         huint32 ppr = instance.node_gear_ratios_[node_id];
