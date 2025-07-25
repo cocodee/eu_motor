@@ -8,6 +8,7 @@
 #include <thread>
 #include <chrono>
 #include <cmath> // For std::sin
+#include <iomanip>
 
 // Helper function for printing test case headers
 void print_header(const std::string& test_name) {
