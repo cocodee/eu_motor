@@ -42,6 +42,8 @@ def test_position():
     node = TrajectoryTestClient()
     topic_name = "/right_arm_controller/commands"
     publisher = node.create_publisher(Float64MultiArray, topic_name, 10)
+    while publisher.get_subscription_count() == 0:
+        rclpy.spin_once(node, timeout_sec=0.1) # 短暂spin来处理事件    
     msg = Float64MultiArray()
 
         # 3. 填充消息数据
