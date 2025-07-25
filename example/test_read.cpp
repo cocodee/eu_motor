@@ -4,7 +4,8 @@
 #include <mutex>
 #include <thread>
 #include <csignal>
-
+#include <string>      // 用于 std::stoi
+#include <stdexcept>   // 用于捕获 std::stoi 的异常
 // SDO方式读取从站数据示例程序
 
 void printHexArray(bool isSend, const unsigned char *data, size_t length)
@@ -40,7 +41,7 @@ void signal_handler(int signal)
     exit(1);
 }
 
-int main()
+int main(int argc, char **argv)
 {
     signal(SIGINT, signal_handler);
     if (HARMONIC_SUCCESS != harmonic_initDLL(harmonic_DeviceType_Canable, devIndex, harmonic_Baudrate_1000))
@@ -53,7 +54,35 @@ int main()
     // harmonic_setSendDataCallBack(sendCallback);
     // harmonic_setReceiveDataCallBack(receiveCallback);
 
-    int id = 21;
+    // --- 1. 参数检查 ---
+    // 检查是否提供了足够的参数。程序名本身是第一个参数，所以我们需要 argc == 2。
+    if (argc != 2)
+    {
+        // 如果参数不正确，打印用法提示并退出
+        std::cerr << "Usage: " << argv[0] << " <node_id>" << std::endl;
+        std::cerr << "Example: " << argv[0] << " 21" << std::endl;
+        return 1; // 返回非零值表示错误
+    }
+
+    int id;
+    // --- 2. 解析参数 ---
+    try
+    {
+        // 使用 std::stoi 将字符串参数 (argv[1]) 转换为整数
+        id = std::stoi(argv[1]);
+    }
+    catch (const std::invalid_argument& e)
+    {
+        std::cerr << "[Error] Invalid node ID. Please provide a valid number." << std::endl;
+        return 1;
+    }
+    catch (const std::out_of_range& e)
+    {
+        std::cerr << "[Error] Node ID is out of range for an integer." << std::endl;
+        return 1;
+    }
+
+    std::cout << "Attempting to query node with ID: " << id << std::endl;
 
     harmonic_NodeState state;
     if (HARMONIC_SUCCESS != harmonic_getNodeState(devIndex, id, &state))
