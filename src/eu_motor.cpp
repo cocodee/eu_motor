@@ -84,10 +84,15 @@ EuMotorNode::EuMotorNode(huint8 devIndex, huint8 nodeId, huint32 default_timeout
     harmonic_getPositionWindow(devIndex, nodeId, &posWindow);
     std::cout << "INFO [Motor] " << (int)node_id_ << "]: original position window: " << posWindow << std::endl;
     std::cout << "INFO [Motor] " << (int)node_id_ << "]: Position window set to 0xFFFF." << std::endl;
-    harmonic_setPositionWindow(devIndex, nodeId, 0xFFFFFF);
+    harmonic_setPositionWindow(devIndex, nodeId, 0x64);
+    huint32 eWindow;
+    harmonic_getFollowingErrorWindow(devIndex, nodeId, &eWindow);
+    std::cout << "INFO [Motor] " << (int)node_id_ << "]: original error window: " << eWindow << std::endl;
+    std::cout << "INFO [Motor] " << (int)node_id_ << "]: Error window set to 0xFFFF." << std::endl;
+    harmonic_setFollowingErrorWindow(devIndex, nodeId, 0xFFFFFF);
     std::cout << "INFO [Motor " << (int)node_id_ << "]: Initialized." << "pulses_per_rev_:"<<pulses_per_rev_<< std::endl;
 }
-
+4
 bool EuMotorNode::check(int return_code, const std::string& operation_name) const {
     if (return_code != HARMONIC_SUCCESS) {
         std::cerr << "ERROR [Motor " << (int)node_id_ << "]: " << operation_name 
