@@ -2,7 +2,7 @@
 
 controller_manager:
   ros__parameters:
-    update_rate: 100  # Hz
+    update_rate: 50  # Hz
 
     # Controller for the left arm
     left_arm_controller:
