@@ -252,6 +252,7 @@ int main(int argc, char* argv[]) {
     test_suite["cst"] = test_cst_mode;
     test_suite["ip"] = test_ip_mode;
     test_suite["feedback"] = test_feedback_mode;
+    test_suite["status"] = test_status_and_errors;
 
     // --- Argument Parsing ---
     // --- Argument Parsing ---
