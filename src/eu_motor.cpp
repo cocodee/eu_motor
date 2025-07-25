@@ -32,8 +32,11 @@ CanNetworkManager::~CanNetworkManager() {
 }
 
 
-
 // --- EuMotorNode Implementation ---
+int EuMotorNode::getNodeId(){
+    return (int)node_id_;
+}
+
 bool EuMotorNode::moveTo(hreal32 target_angle_deg, huint32 velocity_dps, huint32 acceleration_dpss, huint32 deceleration_dpss) {
     //TODO: Check if we're already in the correct mode
     //if (current_mode_ != harmonic_OperateMode_ProfilePosition && !switchMode(harmonic_OperateMode_ProfilePosition)) return false;

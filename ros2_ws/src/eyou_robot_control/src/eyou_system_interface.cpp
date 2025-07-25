@@ -193,8 +193,8 @@ hardware_interface::return_type EyouSystemInterface::write(const rclcpp::Time & 
     for (size_t i = 0; i < motor_nodes_.size(); ++i) {
         if (hw_start_enabled_[i]) {
             // The sendCspTargetPosition function does not send the SYNC message itself.
-            motor_nodes_[i]->sendCspTargetPosition(hw_commands_positions_[i], 0, false);
-            RCLCPP_INFO(rclcpp::get_logger("EyouSystemInterface"), "send motor position %f",hw_commands_positions_[i]);
+            motor_nodes_[i]->sendCspTargetPosition(hw_commands_positions_[i], 0, true);
+            RCLCPP_INFO(rclcpp::get_logger("EyouSystemInterface"), "send motor position %f, node_id:%d",hw_commands_positions_[i],motor_nodes_[i]->getNodeId());
             any_motor_enabled = true;
         }
     }
