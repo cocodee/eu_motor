@@ -271,9 +271,12 @@ bool EuMotorNode::write(huint16 index, huint8 subIndex, T value) {
 template bool EuMotorNode::write<huint32>(huint16, huint8, huint32);
 template huint32 EuMotorNode::read<huint32>(huint16, huint8);
 // ... add more instantiations as needed
-bool EuMotorNode::configureCspMode(huint16 pdo_index) {
+bool EuMotorNode::configureCspMode(huint16 pdo_index, bool use_sync) {
     std::cout << "INFO [Motor " << (int)node_id_ << "]: Configuring for CSP mode..." << std::endl;
     int itpv = 4;        // 插补周期，单位ms
+    // Determine RPDO transmit type based on sync flag
+    // 0x01: Synchronous cyclic. 0xFF: Asynchronous, event-driven.
+    huint8 rpdo_transmit_type = use_sync ? 0x01 : 0xFF;
     // Switch to pre-op for configuration
     //if (!check(harmonic_setNodeState(dev_index_, node_id_, harmonic_NMTState_Enter_PreOperational), "CSP: Enter Pre-Op")) return false;
     if (!check(harmonic_setOperateMode(dev_index_, node_id_, harmonic_OperateMode_CyclicSyncPosition),"CSP: Switch to CSP")) return false;
@@ -286,7 +289,7 @@ bool EuMotorNode::configureCspMode(huint16 pdo_index) {
     if (!check(harmonic_setRPDOMaxMappedCount(dev_index_, node_id_, pdo_index, 0), "CSP: Clear RPDO Map")) return false;
         // 1. Configure RPDO communication type to be synchronous
     // 0x01 means synchronous cyclic
-    if (!check(harmonic_setRPDOTransmitType(dev_index_, node_id_, pdo_index, 1), "CSP: Set RPDO Type")) return false;
+    if (!check(harmonic_setRPDOTransmitType(dev_index_, node_id_, pdo_index, rpdo_transmit_type), "CSP: Set RPDO Type")) return false;
 
     // Map Target Position (0x607A), 32 bits (0x20)
     huint32 mapping_value = (0x607A << 16) + 0x0020;
@@ -330,9 +333,12 @@ void EuMotorNode::sendCspTargetPosition(hreal32 target_angle_deg, huint16 pdo_in
  * This function sets up the necessary PDOs for real-time torque control.
  * It follows the logic from the test_cst_mode.cpp example.
  */
-bool EuMotorNode::configureCstMode(huint8 interpolation_period_ms, huint16 pdo_index) {
+bool EuMotorNode::configureCstMode(huint8 interpolation_period_ms, huint16 pdo_index,bool use_sync) {
     std::cout << "INFO [Motor " << (int)node_id_ << "]: Configuring for CST mode..." << std::endl;
 
+    // Determine RPDO transmit type based on sync flag
+    // 0x01: Synchronous cyclic. 0xFF: Asynchronous, event-driven.
+    huint8 rpdo_transmit_type = use_sync ? 0x01 : 0xFF;
     // Switch to pre-operational state for configuration
     //if (!check(harmonic_setNodeState(dev_index_, node_id_, harmonic_NMTState_Enter_PreOperational), "CST: Enter Pre-Op")) return false;
     if (!check(harmonic_setOperateMode(dev_index_, node_id_, harmonic_OperateMode_CyclicSyncTorque),"CST: Set Mode")) return false;
@@ -345,7 +351,7 @@ bool EuMotorNode::configureCstMode(huint8 interpolation_period_ms, huint16 pdo_i
     
     // 2. Configure RPDO communication type to be synchronous cyclic (Type 1)
     // This makes the motor wait for a SYNC message before applying the received torque value.
-    if (!check(harmonic_setRPDOTransmitType(dev_index_, node_id_, pdo_index, 1), "CST: Set RPDO Type to Sync")) return false;
+    if (!check(harmonic_setRPDOTransmitType(dev_index_, node_id_, pdo_index, rpdo_transmit_type), "CST: Set RPDO Type to Sync")) return false;
 
     // 3. Map the RPDO to the target torque object (0x6071)
 
@@ -398,9 +404,11 @@ void EuMotorNode::sendCstTargetTorque(hint16 target_torque, huint16 pdo_index, b
  * This function sets up the necessary PDOs for real-time velocity control.
  * It follows the logic from the test_csv_mode.cpp example.
  */
-bool EuMotorNode::configureCsvMode(huint8 interpolation_period_ms, huint16 pdo_index) {
+bool EuMotorNode::configureCsvMode(huint8 interpolation_period_ms, huint16 pdo_index, bool use_sync) {
     std::cout << "INFO [Motor " << (int)node_id_ << "]: Configuring for CSV mode..." << std::endl;
-
+    // Determine RPDO transmit type based on sync flag
+    // 0x01: Synchronous cyclic. 0xFF: Asynchronous, event-driven.
+    huint8 rpdo_transmit_type = use_sync ? 0x01 : 0xFF;
     // Switch to pre-operational state for configuration
     //if (!check(harmonic_setNodeState(dev_index_, node_id_, harmonic_NMTState_Enter_PreOperational), "CSV: Enter Pre-Op")) return false;
     if (!check(harmonic_setOperateMode(dev_index_, node_id_, harmonic_OperateMode_CyclicSyncVelocity),"CSV: Set Mode")) return false;    
@@ -412,7 +420,7 @@ bool EuMotorNode::configureCsvMode(huint8 interpolation_period_ms, huint16 pdo_i
     if (!check(harmonic_setRPDOMaxMappedCount(dev_index_, node_id_, pdo_index, 0), "CSV: Clear RPDO Map")) return false;
     
     // 2. Configure RPDO communication type to be synchronous cyclic (Type 1)
-    if (!check(harmonic_setRPDOTransmitType(dev_index_, node_id_, pdo_index, 1), "CSV: Set RPDO Type to Sync")) return false;
+    if (!check(harmonic_setRPDOTransmitType(dev_index_, node_id_, pdo_index, rpdo_transmit_type), "CSV: Set RPDO Type to Sync")) return false;
 
 
     // Map Target Velocity (Object 0x60FF), 32 bits long (0x20)

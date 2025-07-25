@@ -223,9 +223,9 @@ public:
      * @param pdo_index Which RPDO to use for position commands (0-3 for RPDO1-4).
      * @return True on success, false on failure.
      */
-    bool configureCspMode(huint16 pdo_index = 0);
+    bool configureCspMode(huint16 pdo_index = 0,bool use_sync=true);
 
-    bool configureCstMode(huint8 interpolation_period_ms, huint16 pdo_index = 0);  
+    bool configureCstMode(huint8 interpolation_period_ms, huint16 pdo_index = 0,bool use_sync=true);  
 
     /**
      * @brief Configures the motor for Cyclic Sync Velocity (CSV) mode.
@@ -233,7 +233,7 @@ public:
      * @param pdo_index The RPDO index to use for receiving target velocity (default 0 for RPDO1).
      * @return True if configuration is successful, false otherwise.
      */
-    bool configureCsvMode(huint8 interpolation_period_ms, huint16 pdo_index = 0);
+    bool configureCsvMode(huint8 interpolation_period_ms, huint16 pdo_index = 0,bool use_sync=true);
 
     // --- Real-time Commands ---
     void sendCspTargetPosition(hreal32 target_angle_deg, huint16 pdo_index = 0, bool isSync=true);
