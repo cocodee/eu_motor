@@ -134,15 +134,73 @@ void test_feedback_mode(EuMotorNode& motor) {
 }
 
 
+// +++ NEW TEST CASE +++
+// Helper function to decode and print the CiA 402 Statusword
+void print_status_word(huint16 status) {
+    std::cout << "Statusword: 0x" << std::hex << std::setw(4) << std::setfill('0') << status << std::dec 
+              << " (";
+    std::string flags;
+    if (status & 0x0001) flags += "ReadyToSwitchOn, ";
+    if (status & 0x0002) flags += "SwitchedOn, ";
+    if (status & 0x0004) flags += "OpEnabled, ";
+    if (status & 0x0008) flags += "FAULT, ";
+    if (status & 0x0010) flags += "VoltageEnabled, ";
+    if (status & 0x0020) flags += "QuickStop, ";
+    if (status & 0x0040) flags += "SwitchOnDisabled, ";
+    if (status & 0x0080) flags += "Warning, ";
+    if (status & 0x0400) flags += "TargetReached, ";
+    if (status & 0x1000) flags += "Remote, ";
+    if (!flags.empty()) {
+        flags.resize(flags.length() - 2); // Remove trailing comma and space
+    }
+    std::cout << flags << ")" << std::endl;
+}
+
+void test_status_and_errors(EuMotorNode& motor) {
+    print_header("Status, Error & SDO Reading Test");
+
+    try {
+        harmonic_OperateMode mode = motor.getOperationMode();
+        std::cout << "Current Operation Mode (from device): " << static_cast<int>(mode) << std::endl;
+
+        huint16 status = motor.getStatusWord();
+        print_status_word(status);
+
+        huint16 error_code = motor.getErrorCode();
+        std::cout << "Current Error Code: 0x" << std::hex << std::setw(4) << std::setfill('0') << error_code << std::dec << std::endl;
+
+        // --- 2. Reading Error History from SDO ---
+        std::cout << "\n--- 2. Reading Error History (SDO 0x1003) ---" << std::endl;
+        // Try to read the first stored error (sub-index 1). This is a 32-bit value.
+        // This demonstrates reading from the object dictionary.
+        try {
+            huint32 first_error = motor.read<huint32>(0x1003, 1);
+            std::cout << "Latest error from history (0x1003, sub 1): 0x" << std::hex << first_error << std::dec << std::endl;
+        } catch (const std::runtime_error& e) {
+            std::cout << "Could not read error history SDO: " << e.what() << std::endl;
+            std::cout << "(This is normal if no errors have ever occurred or SDO access is restricted)." << std::endl;
+        }
+
+    } catch (const std::exception& e) {
+        std::cerr << "An error occurred during the status test for motor " 
+                  << motor.getNodeId() << ": " << e.what() << std::endl;
+    }
+
+    motor.disable();
+    std::cout << "\nStatus test for motor " << motor.getNodeId() << " finished." << std::endl;
+}
+// +++ END OF NEW TEST CASE +++
+
+
 // Function to display help message
 void print_usage(const char* prog_name, const std::map<std::string, std::function<void(EuMotorNode&)>>& tests) {
-    std::cout << "Usage: " << prog_name << " [test_name_1] [test_name_2] ..." << std::endl;
-    std::cout << "   or: " << prog_name << " all" << std::endl;
+    std::cout << "Usage: " << prog_name << " --dev <id1> <id2>... --tests <test1> <test2>..." << std::endl;
+    std::cout << "   or: " << prog_name << " --dev <id1>... --tests all" << std::endl;
     std::cout << "\nAvailable tests:" << std::endl;
     for (const auto& pair : tests) {
         std::cout << "  - " << pair.first << std::endl;
     }
-    std::cout << "\nExample: " << prog_name << " pp pv" << std::endl;
+    std::cout << "\nExample: " << prog_name << " --dev 1 --tests pp status" << std::endl;
 }
 
 void run_test_on_all_motors(const std::string& test_name, 
@@ -154,7 +212,7 @@ void run_test_on_all_motors(const std::string& test_name,
 
     // Reset and prepare all motors before starting the test
     for (auto& motor : motors) {
-        motor->clearFault();
+        //motor->clearFault();
         motor->disable();
         std::this_thread::sleep_for(std::chrono::milliseconds(50));
     }
