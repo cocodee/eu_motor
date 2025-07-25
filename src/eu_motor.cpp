@@ -80,6 +80,11 @@ EuMotorNode::EuMotorNode(huint8 devIndex, huint8 nodeId, huint32 default_timeout
         MotorFeedbackManager::getInstance().node_gear_ratios_[node_id_] = pulses_per_rev_;
         std::cout << "INFO [Motor] " << (int)node_id_ << "]: Gear ratio set to " << pulses_per_rev_ << "." << std::endl;
     }
+    huint32 posWindow;
+    harmonic_getPositionWindow(devIndex, nodeId, &posWindow);
+    std::cout << "INFO [Motor] " << (int)node_id_ << "]: original position window: " << posWindow << std::endl;
+    std::cout << "INFO [Motor] " << (int)node_id_ << "]: Position window set to 0xFFFF." << std::endl;
+    harmonic_setPositionWindow(devIndex, nodeId, 0xFFFF);
     std::cout << "INFO [Motor " << (int)node_id_ << "]: Initialized." << "pulses_per_rev_:"<<pulses_per_rev_<< std::endl;
 }
 
