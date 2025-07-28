@@ -92,7 +92,6 @@ EuMotorNode::EuMotorNode(huint8 devIndex, huint8 nodeId, huint32 default_timeout
     harmonic_setFollowingErrorWindow(devIndex, nodeId, 0xFFFFFF);
     std::cout << "INFO [Motor " << (int)node_id_ << "]: Initialized." << "pulses_per_rev_:"<<pulses_per_rev_<< std::endl;
 }
-4
 bool EuMotorNode::check(int return_code, const std::string& operation_name) const {
     if (return_code != HARMONIC_SUCCESS) {
         std::cerr << "ERROR [Motor " << (int)node_id_ << "]: " << operation_name 
