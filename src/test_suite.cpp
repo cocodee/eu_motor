@@ -59,9 +59,9 @@ void test_csp_mode(EuMotorNode& motor) {
         std::cout << "Motor configured for CSP mode. Sending a sine wave trajectory." << std::endl;
         hreal32 start_pos = 0;
         for (int i = 0; i <= 200; ++i) {
-            hreal32 target_pos = start_pos + 5.0f * std::sin(2.0 * M_PI * i / 200.0);
+            hreal32 target_pos = start_pos + 10.0f * std::sin(2.0 * M_PI * i / 200.0);
             motor.sendCspTargetPosition(target_pos, 0, true);
-            std::this_thread::sleep_for(std::chrono::milliseconds(10));
+            std::this_thread::sleep_for(std::chrono::milliseconds(5));
         }
     } else {
         std::cerr << "Failed to configure CSP mode." << std::endl;
