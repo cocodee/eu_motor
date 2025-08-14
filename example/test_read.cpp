@@ -33,7 +33,7 @@ void receiveCallback(int devIndex, const harmonic_CanMsg *msg)
     printHexArray(false, msg->data, msg->len);
 }
 
-int devIndex = 0;
+int devIndex = 1;
 
 void signal_handler(int signal)
 {
