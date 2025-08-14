@@ -6,4 +6,4 @@ IMAGE_NAME="eu_motor_base:latest"
 # --rm: 容器退出后自动删除 (保持环境干净)
 # -v:   挂载卷，格式是 <host-path>:<container-path>
 # ${PWD}:  这是一个Shell变量，代表“Print Working Directory”，即当前目录
-docker run -it --rm -v "${PWD}:/app" ${IMAGE_NAME} /bin/bash
+docker run -it --rm -v "${PWD}:/app" -v $(pwd)/../supre_robot_control/lib:/mylib ${IMAGE_NAME} /bin/bash
