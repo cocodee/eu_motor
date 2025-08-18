@@ -88,7 +88,7 @@ EuMotorNode::EuMotorNode(huint8 devIndex, huint8 nodeId, huint32 default_timeout
     huint32 eWindow;
     harmonic_getFollowingErrorWindow(devIndex, nodeId, &eWindow);
     std::cout << "INFO [Motor] " << (int)node_id_ << "]: original error window: " << eWindow << std::endl;
-    std::cout << "INFO [Motor] " << (int)node_id_ << "]: Error window set to 0xFFFF." << std::endl;
+    std::cout << "INFO [Motor] " << (int)node_id_ << "]: Error window set to 0xFFFFFF." << std::endl;
     harmonic_setFollowingErrorWindow(devIndex, nodeId, 0xFFFFFF);
     std::cout << "INFO [Motor " << (int)node_id_ << "]: Initialized." << "pulses_per_rev_:"<<pulses_per_rev_<< std::endl;
 }
@@ -317,7 +317,7 @@ bool EuMotorNode::configureCspMode(huint16 pdo_index, bool use_sync) {
     return true;
 }
 
-void EuMotorNode::sendCspTargetPosition(hreal32 target_angle_deg, huint16 pdo_index, bool isSync) {
+int EuMotorNode::sendCspTargetPosition(hreal32 target_angle_deg, huint16 pdo_index, bool isSync) {
     huint16 rpdo_base_cobid = 0x200; // RPDO1 base
     if (pdo_index > 0) {
         rpdo_base_cobid += (pdo_index * 0x100);
@@ -331,10 +331,11 @@ void EuMotorNode::sendCspTargetPosition(hreal32 target_angle_deg, huint16 pdo_in
     data[2] = (pos_pulses >> 16) & 0xFF;
     data[3] = (pos_pulses >> 24) & 0xFF;
     
-    harmonic_writeCanData(dev_index_, rpdo_base_cobid + node_id_, data, 4);
+    int result = harmonic_writeCanData(dev_index_, rpdo_base_cobid + node_id_, data, 4);
     if (isSync){
         sendSync();
     }
+    return result;
 }
 
 /**

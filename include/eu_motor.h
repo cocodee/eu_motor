@@ -236,7 +236,7 @@ public:
     bool configureCsvMode(huint8 interpolation_period_ms, huint16 pdo_index = 0,bool use_sync=true);
 
     // --- Real-time Commands ---
-    void sendCspTargetPosition(hreal32 target_angle_deg, huint16 pdo_index = 0, bool isSync=true);
+    int sendCspTargetPosition(hreal32 target_angle_deg, huint16 pdo_index = 0, bool isSync=true);
     /**
      * @brief Sends the target torque value via a raw CAN frame for CST mode.
      * @param target_torque The target torque in device-specific units (usually 1/1000 of rated torque).
