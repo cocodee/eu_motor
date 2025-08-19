@@ -1,6 +1,31 @@
 #include "../include/eu_motor.h"
 #include <cstddef>
+#include <sstream>
 
+/**
+ * @brief 将 harmonic 库的错误码转换为可读的字符串
+ * 
+ * @param code 错误码
+ * @return std::string 错误描述
+ */
+std::string harmonicErrorToString(int code) {
+    switch (code) {
+        case HARMONIC_SUCCESS: return "Success";
+        case HARMONIC_FAILED_DEVICEDISABLED: return "Device disabled or does not exist";
+        case HARMONIC_FAILED_OPENFAILED: return "Device open failed";
+        case HARMONIC_FAILED_CANSEND: return "CAN send failed";
+        case HARMONIC_FAILED_CANRECEIVE: return "CAN receive failed";
+        case HARMONIC_FAILED_ReadLocalDict: return "Read local dictionary failed";
+        case HARMONIC_FAILED_WriteLocalDict: return "Write local dictionary failed";
+        case HARMONIC_FAILED_NoRespondR: return "SDO read request timed out (no response)";
+        case HARMONIC_FAILED_NoRespondW: return "SDO write request timed out (no response)";
+        case HARMONIC_FAILED_UNKNOWN: return "Unknown failure";
+        default:
+            std::stringstream ss;
+            ss << "Unknown error code: " << code;
+            return ss.str();
+    }
+}
 // --- CanNetworkManager Implementation ---
 
 void CanNetworkManager::initDevice(harmonic_DeviceType devType, huint8 devIndex, harmonic_Baudrate baudrate) {
@@ -203,8 +228,18 @@ huint16 EuMotorNode::getStatusWord() {
 
 huint16 EuMotorNode::getErrorCode() {
     huint16 err;
-    if (!check(harmonic_getServoErrorCode(dev_index_, node_id_, &err, timeout_ms_), "Get Error Code")) {
-        throw std::runtime_error("Failed to read Error Code for Node " + std::to_string(node_id_));
+    // 注意：这里不再需要 check() 了，因为如果读取失败，下面的函数会直接抛出异常。
+    // 我们用一个 try-catch 块来捕获它，并返回一个表示通信失败的值（或者重新抛出）。
+    try {
+        if (harmonic_getServoErrorCode(dev_index_, node_id_, &err, timeout_ms_) != HARMONIC_SUCCESS) {
+            // 如果函数返回错误但没有抛出（这种情况不应该发生，但为了安全），我们手动抛出
+            throw std::runtime_error("Failed to read Error Code (harmonic call failed)");
+        }
+    } catch (const std::runtime_error& e) {
+        // 如果 check() （或者它内部的函数）抛出异常，我们在这里捕获
+        std::cerr << "COMM_ERROR [Motor " << (int)node_id_ << "]: " << e.what() << std::endl;
+        // 重新抛出一个更明确的异常，表明是通信问题
+        throw std::runtime_error("Communication failed while getting error code for Node " + std::to_string(node_id_));
     }
     return err;
 }
@@ -540,7 +575,7 @@ bool EuMotorNode::configureIpMode(huint8 interpolation_period_ms, huint16 pdo_in
 /**
  * @brief Sends the target position for IP mode using a direct CAN write.
  */
-void EuMotorNode::sendIpTargetPosition(hreal32 target_angle_deg, huint16 pdo_index,bool isSync) {
+int EuMotorNode::sendIpTargetPosition(hreal32 target_angle_deg, huint16 pdo_index,bool isSync) {
     // Determine the COB-ID for the RPDO.
     huint32 rpdo_base_cobid = 0x200 + (pdo_index * 0x100);
     huint32 cob_id = rpdo_base_cobid + node_id_;
@@ -556,13 +591,14 @@ void EuMotorNode::sendIpTargetPosition(hreal32 target_angle_deg, huint16 pdo_ind
     data[3] = (pos_pulses >> 24) & 0xFF;
     
     // Write the data directly to the CAN bus.
-    harmonic_writeCanData(dev_index_, cob_id, data, 4);
+    int result = harmonic_writeCanData(dev_index_, cob_id, data, 4);
 
     // If using synchronous mode, a separate SYNC message is required.
     // The example code's setPos function sends it, so we replicate that behavior.
     if (isSync) {
         sendSync();
     }
+    return result;
 }
 void EuMotorNode::sendSync() {
     huint8 data[1] = {0};

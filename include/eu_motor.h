@@ -290,7 +290,7 @@ public:
      *                 If false, the PDO itself will trigger the motion.
      * @param pdo_index The RPDO index that was configured (default 0 for RPDO1).
      */
-    void sendIpTargetPosition(hreal32 target_angle_deg, huint16 pdo_index = 0, bool isSync=true);   
+    int sendIpTargetPosition(hreal32 target_angle_deg, huint16 pdo_index = 0, bool isSync=true);   
     /**
      * @brief Broadcasts a SYNC message on the bus to trigger all synced motors.
      */
