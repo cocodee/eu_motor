@@ -12,6 +12,7 @@
 #include <chrono>
 #include <map>
 #include <condition_variable>
+#include <functional>
 
 // --- Data Structures for Feedback ---
 
