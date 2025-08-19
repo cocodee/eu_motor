@@ -22,8 +22,30 @@
 struct MotorFeedbackData {
     hreal32 position_deg = 0.0f;
     hreal32 velocity_dps = 0.0f;
+
+    huint16 status_word = 0;
+    huint16 error_code = 0;
+    bool in_fault = false; // 一个方便的标志位
+
     std::chrono::steady_clock::time_point last_update_time;
 };
+
+/**
+ * @brief EMCY 报文的数据结构
+ */
+struct EmcyMessage {
+    huint8  node_id;
+    huint16 error_code;
+    huint8  error_register;
+    huint8  manufacturer_specific[5];
+};
+
+/**
+ * @brief 定义错误回调函数的类型
+ * 
+ * @param emcy_msg 包含详细错误信息的EMCY报文
+ */
+using EmcyCallback = std::function<void(const EmcyMessage& emcy_msg)>;
 
 // Forward declaration
 class EuMotorNode; 
@@ -283,6 +305,16 @@ public:
      */
     bool startAutoFeedback(huint16 pdo_index = 0, huint8 transmit_type = 254, huint16 event_timer_ms = 100);
     
+    /**
+     * @brief 配置一个专门用于上报状态和错误的TPDO (例如 TPDO2)。
+     * 
+     * @param pdo_index TPDO的索引 (例如 1 代表 TPDO2)。
+     * @param transmit_type 传输类型 (推荐 254 或 255，事件驱动)。
+     * @param event_timer_ms 事件定时器，单位毫秒 (防止报文风暴)。
+     * @return true 如果配置成功。
+     */
+    bool startErrorFeedbackTPDO(huint16 pdo_index, huint8 transmit_type = 254, huint16 event_timer_ms = 10);    
+
     int getNodeId();
 private:
     huint8 dev_index_;

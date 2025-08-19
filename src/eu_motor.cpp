@@ -616,6 +616,61 @@ bool EuMotorNode::startAutoFeedback(huint16 pdo_index, huint8 transmit_type, hui
     return true;
 }
 
+// 在 eu_motor.cpp 中
+bool EuMotorNode::startErrorFeedbackTPDO(huint16 pdo_index, huint8 transmit_type, huint16 event_timer_ms) {
+    // 确保 pdo_index > 0，因为 TPDO1 (index 0) 通常用于反馈位置/速度
+    if (pdo_index == 0) {
+        std::cerr << "ERROR [Motor " << (int)node_id_ << "]: TPDO index for error feedback should be > 0 (e.g., 1 for TPDO2)." << std::endl;
+        return false;
+    }
+
+    std::cout << "INFO [Motor " << (int)node_id_ << "]: Configuring error feedback on TPDO" << pdo_index + 1 << "..." << std::endl;
+
+    try {
+        // TPDOs 必须在 Pre-Operational 状态下配置
+        check(harmonic_setNodeState(dev_index_, node_id_, harmonic_NMTState_Enter_PreOperational), "ErrorFeedback: Enter Pre-Op");
+
+        // 1. 禁用TPDO以便配置
+        huint32 tpd_cobid = (0x180 + (0x100 * pdo_index) + node_id_);
+        check(harmonic_setTPDOCobId(dev_index_, node_id_, pdo_index, tpd_cobid | 0x80000000), "ErrorFeedback: Disable TPDO");
+
+        // 2. 清除现有映射
+        check(harmonic_setTPDOMaxMappedCount(dev_index_, node_id_, pdo_index, 0), "ErrorFeedback: Clear TPDO Map");
+
+        // 3. 映射我们需要的对象: Statusword (6041h) 和 Error Code (603Fh)
+        // 映射格式: (Index << 16) | (SubIndex << 8) | (数据长度，单位bit)
+        huint32 statusword_mapping = (0x6041 << 16) | (0x00 << 8) | 16; // Statusword, 16 bits (2 bytes)
+        huint32 errorcode_mapping  = (0x603F << 16) | (0x00 << 8) | 16; // Error Code, 16 bits (2 bytes)
+
+        check(harmonic_setTPDOMapped(dev_index_, node_id_, pdo_index, 0, statusword_mapping), "ErrorFeedback: Map Statusword");
+        check(harmonic_setTPDOMapped(dev_index_, node_id_, pdo_index, 1, errorcode_mapping), "ErrorFeedback: Map Error Code");
+
+        // 4. 设置映射对象的数量
+        check(harmonic_setTPDOMaxMappedCount(dev_index_, node_id_, pdo_index, 2), "ErrorFeedback: Set TPDO Map Count");
+
+        // 5. 设置传输类型 (254/255 是事件驱动，当数值变化时发送)
+        check(harmonic_setTPDOTransmitType(dev_index_, node_id_, pdo_index, transmit_type), "ErrorFeedback: Set Transmit Type");
+
+        // 6. 如果是事件驱动，设置事件定时器以限制发送频率
+        if (transmit_type >= 254) {
+            check(harmonic_setTPDOEventTimer(dev_index_, node_id_, pdo_index, event_timer_ms), "ErrorFeedback: Set Event Timer");
+        }
+
+        // 7. 重新启用TPDO
+        check(harmonic_setTPDOCobId(dev_index_, node_id_, pdo_index, tpd_cobid), "ErrorFeedback: Enable TPDO");
+
+        // 8. 返回操作状态
+        check(harmonic_setNodeState(dev_index_, node_id_, harmonic_NMTState_Start_Node), "ErrorFeedback: Enter Operational");
+
+    } catch (const std::runtime_error& e) {
+        std::cerr << "FATAL [Motor " << (int)node_id_ << "]: Failed to configure error feedback TPDO. Reason: " << e.what() << std::endl;
+        return false;
+    }
+
+    std::cout << "INFO [Motor " << (int)node_id_ << "]: Error feedback TPDO configured successfully." << std::endl;
+    return true;
+}
+
 MotorFeedbackData EuMotorNode::getLatestFeedback(){
     MotorFeedbackManager& feedback_manager_= MotorFeedbackManager::getInstance();
     return feedback_manager_.getFeedback(node_id_);
@@ -655,7 +710,32 @@ void MotorFeedbackManager::canRecvCallback(int devIndex, const harmonic_CanMsg* 
 
     huint32 function_code = frame->cob_id & 0x780;
     
-    if ((frame->cob_id >= 0x181 && frame->cob_id <= 0x1FF) && frame->len == 8) {
+    if (function_code == 0x80) {
+        huint8 node_id = frame->cob_id & 0x0000007F;
+        if (frame->len >= 3) { // 至少需要3个字节
+            EmcyMessage msg;
+            msg.node_id = node_id;
+            msg.error_code = frame->data[0] | (frame->data[1] << 8);
+            msg.error_register = frame->data[2];
+            for (int i = 0; i < 5 && (i + 3) < frame->len; ++i) {
+                msg.manufacturer_specific[i] = frame->data[i + 3];
+            }
+
+            // 打印紧急报文信息
+            std::cerr << "!!! EMERGENCY [Motor " << (int)msg.node_id << "] !!! "
+                      << "Code: 0x" << std::hex << msg.error_code << std::dec
+                      << ", Register: 0x" << std::hex << (int)msg.error_register << std::dec << std::endl;
+
+            // 如果有注册的回调函数，则调用它
+            //std::lock_guard<std::mutex> lock(instance.mutex_);
+            //if (instance.emcy_callback_) {
+            //    instance.emcy_callback_(msg);
+            //}
+        }
+        return; // 处理完EMCY后直接返回
+    }
+
+    if ((function_code >= 0x181 && function_code <= 0x1FF) && frame->len == 8) {
         std::cout << "INFO [MotorFeedbackManager]: Received CAN frame with COB-ID: " << std::hex << frame->cob_id << std::dec << std::endl;
         huint8 node_id = frame->cob_id & 0x0000007F;
         // Lock the instance's mutex
@@ -675,6 +755,35 @@ void MotorFeedbackManager::canRecvCallback(int devIndex, const harmonic_CanMsg* 
         instance.feedback_data_[node_id].position_deg = pulsesToAngle(pos_pulses, ppr);
         instance.feedback_data_[node_id].velocity_dps = pulsesToVelocity(vel_pulses, ppr);
         instance.feedback_data_[node_id].last_update_time = std::chrono::steady_clock::now();
+    }
+
+    if (function_code == 0x280 && frame->len == 4) {
+        std::lock_guard<std::mutex> lock(instance.mutex_);
+        huint8 node_id = frame->cob_id & 0x0000007F;
+        if (instance.node_gear_ratios_.count(node_id) == 0) {
+            std::cerr << "Warning: Ignoring TPDO1 from unregistered node " << (int)node_id << std::endl;
+            return;
+        }
+        // 解析数据 (小端格式)
+        huint16 status = (frame->data[1] << 8) | frame->data[0];
+        huint16 error  = (frame->data[3] << 8) | frame->data[2];
+
+        // 更新到共享数据结构中
+        instance.feedback_data_[node_id].status_word = status;
+        instance.feedback_data_[node_id].error_code = error;
+        
+        // 检查 Statusword 的 Fault 位 (Bit 3)
+        bool fault_detected = (status & 0x0008) != 0;
+        
+        // 如果错误状态发生变化，则打印日志
+        if (fault_detected && !instance.feedback_data_[node_id].in_fault) {
+             std::cerr << "ERROR [Motor " << (int)node_id << "]: Fault detected via TPDO! StatusWord: 0x" 
+                       << std::hex << status << ", ErrorCode: 0x" << error << std::dec << std::endl;
+        } else if (!fault_detected && instance.feedback_data_[node_id].in_fault) {
+             std::cout << "INFO [Motor " << (int)node_id << "]: Fault cleared via TPDO." << std::endl;
+        }
+
+        instance.feedback_data_[node_id].in_fault = fault_detected;
     }
 }
 
