@@ -137,10 +137,24 @@ bool EuMotorNode::disable() {
 }
 
 bool EuMotorNode::clearFault() {
-    huint16 status = getStatusWord();
-    if (status & 0x0008) { // Bit 3 is the fault bit
-        std::cout << "INFO [Motor " << (int)node_id_ << "]: Fault detected, attempting to reset..." << std::endl;
-        return check(harmonic_setControlword(dev_index_, node_id_, 0x80, timeout_ms_), "Fault Reset");
+    try {
+        huint16 status = getStatusWord();
+        if (status & 0x0008) {
+            std::cout << "INFO [Motor " << (int)node_id_ << "]: Fault detected, attempting to reset..." << std::endl;
+            check(harmonic_setControlword(dev_index_, node_id_, 0x80, timeout_ms_), "Fault Reset");
+            
+            std::this_thread::sleep_for(std::chrono::milliseconds(50)); // 等待
+            
+            status = getStatusWord(); // 再次检查
+            if (status & 0x0008) {
+                std::cerr << "ERROR [Motor " << (int)node_id_ << "]: Failed to clear fault." << std::endl;
+                return false;
+            }
+            std::cout << "INFO [Motor " << (int)node_id_ << "]: Fault cleared." << std::endl;
+        }
+    } catch (const std::runtime_error& e) {
+        std::cerr << "ERROR [Motor " << (int)node_id_ << "]: Exception in clearFault: " << e.what() << std::endl;
+        return false;
     }
     return true;
 }
@@ -744,7 +758,7 @@ void MotorFeedbackManager::canRecvCallback(int devIndex, const harmonic_CanMsg* 
     // This is a static function, so it needs to get the instance to access members
     MotorFeedbackManager& instance = getInstance(); 
 
-    huint32 function_code = frame->cob_id & 0x780;
+    huint32 function_code = frame->cob_id & 0xFF80;
     
     if (function_code == 0x80) {
         huint8 node_id = frame->cob_id & 0x0000007F;
@@ -771,7 +785,7 @@ void MotorFeedbackManager::canRecvCallback(int devIndex, const harmonic_CanMsg* 
         return; // 处理完EMCY后直接返回
     }
 
-    if ((function_code >= 0x181 && function_code <= 0x1FF) && frame->len == 8) {
+    if ((frame->cob_id >= 0x181 && frame->cob_id <= 0x1FF) && frame->len == 8) {
         std::cout << "INFO [MotorFeedbackManager]: Received CAN frame with COB-ID: " << std::hex << frame->cob_id << std::dec << std::endl;
         huint8 node_id = frame->cob_id & 0x0000007F;
         // Lock the instance's mutex
