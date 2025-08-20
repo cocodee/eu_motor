@@ -9,6 +9,19 @@
 #include <chrono>
 #include <cmath> // For std::sin
 #include <iomanip>
+#include <csignal>   // <-- 新增: 用于信号处理
+#include <atomic>    // <-- 新增: 用于线程安全的退出标志
+
+// --- 全局退出标志 (用于 monitor 模式) ---
+std::atomic<bool> keep_running(true);
+
+// --- 信号处理函数 ---
+void signal_handler(int signum) {
+    if (signum == SIGINT) {
+        std::cout << "\nCaught Ctrl+C. Requesting shutdown..." << std::endl;
+        keep_running = false;
+    }
+}
 
 // Helper function for printing test case headers
 void print_header(const std::string& test_name) {
