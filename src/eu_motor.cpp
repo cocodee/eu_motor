@@ -208,20 +208,38 @@ bool EuMotorNode::stop() {
     return check(harmonic_stopControl(dev_index_, node_id_), "Stop Control");
 }
 
-hreal32 EuMotorNode::getPosition() {
-    hint32 pulses;
-    if (!check(harmonic_getActualPos(dev_index_, node_id_, &pulses, timeout_ms_), "Get Position")) {
-        throw std::runtime_error("Failed to read position for Node " + std::to_string(node_id_));
+
+hreal32 EuMotorNode::getPosition(){ // <-- 标记为 const
+    // 从缓存中获取最新的反馈数据
+    MotorFeedbackData feedback = getLatestFeedback();
+    
+    // 可以在这里增加一个检查，看数据是否过时
+    auto time_since_update = std::chrono::duration_cast<std::chrono::milliseconds>(
+        std::chrono::steady_clock::now() - feedback.last_update_time
+    ).count();
+
+    // 如果数据超过 500ms 没有更新，可能意味着反馈已丢失，抛出异常
+    if (time_since_update > 500) {
+        throw std::runtime_error("Feedback data for Node " + std::to_string(node_id_) + " is stale!");
     }
-    return pulsesToAngle(pulses);
+
+    return feedback.position_deg;
 }
 
-hreal32 EuMotorNode::getVelocity() {
-    hint32 pps;
-    if (!check(harmonic_getActualVelocity(dev_index_, node_id_, &pps, timeout_ms_), "Get Velocity")) {
-        throw std::runtime_error("Failed to read velocity for Node " + std::to_string(node_id_));
+hreal32 EuMotorNode::getVelocity() { // <-- 标记为 const
+    // 从缓存中获取最新的反馈数据
+    MotorFeedbackData feedback = getLatestFeedback();
+
+    // 同样可以增加超时检查
+    auto time_since_update = std::chrono::duration_cast<std::chrono::milliseconds>(
+        std::chrono::steady_clock::now() - feedback.last_update_time
+    ).count();
+
+    if (time_since_update > 500) {
+        throw std::runtime_error("Feedback data for Node " + std::to_string(node_id_) + " is stale!");
     }
-    return pulsesToVelocity(pps);
+
+    return feedback.velocity_dps;
 }
 
 hint16 EuMotorNode::getTorque() {
