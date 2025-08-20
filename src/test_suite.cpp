@@ -200,7 +200,7 @@ void test_clear_fault(EuMotorNode& motor) {
             std::cout << "Fault cleared for motor " << motor.getNodeId() << "." << std::endl;
         }
     } catch (const std::exception& e) {
-        std::cerr << "An error occurred during the fault clear test for motor " 
+        std::cerr << "An error occurred during the fault clear test for motor ";
     }
 }
 
