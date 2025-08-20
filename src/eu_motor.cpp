@@ -221,7 +221,11 @@ hreal32 EuMotorNode::getPosition(){ // <-- 标记为 const
     // 如果数据超过 500ms 没有更新，可能意味着反馈已丢失，抛出异常
     if (time_since_update > 500) {
         //throw std::runtime_error("Feedback data for Node " + std::to_string(node_id_) + " is stale!");
-        feedback.position_deg = 0.0f;
+        hint32 pulses;
+        if (!check(harmonic_getActualPos(dev_index_, node_id_, &pulses, timeout_ms_), "Get Position")) {
+            throw std::runtime_error("Failed to read position for Node " + std::to_string(node_id_));
+        }
+        return pulsesToAngle(pulses);
     }
 
     return feedback.position_deg;
@@ -238,7 +242,11 @@ hreal32 EuMotorNode::getVelocity() { // <-- 标记为 const
 
     if (time_since_update > 500) {
         //throw std::runtime_error("Feedback data for Node " + std::to_string(node_id_) + " is stale!");
-        feedback.velocity_dps = 0.0f;
+        hint32 pps;
+        if (!check(harmonic_getActualVelocity(dev_index_, node_id_, &pps, timeout_ms_), "Get Velocity")) {
+            throw std::runtime_error("Failed to read velocity for Node " + std::to_string(node_id_));
+        }
+        return pulsesToVelocity(pps);
     }
 
     return feedback.velocity_dps;
