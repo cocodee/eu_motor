@@ -220,7 +220,8 @@ hreal32 EuMotorNode::getPosition(){ // <-- 标记为 const
 
     // 如果数据超过 500ms 没有更新，可能意味着反馈已丢失，抛出异常
     if (time_since_update > 500) {
-        throw std::runtime_error("Feedback data for Node " + std::to_string(node_id_) + " is stale!");
+        //throw std::runtime_error("Feedback data for Node " + std::to_string(node_id_) + " is stale!");
+        feedback.position_deg = 0.0f;
     }
 
     return feedback.position_deg;
@@ -236,7 +237,8 @@ hreal32 EuMotorNode::getVelocity() { // <-- 标记为 const
     ).count();
 
     if (time_since_update > 500) {
-        throw std::runtime_error("Feedback data for Node " + std::to_string(node_id_) + " is stale!");
+        //throw std::runtime_error("Feedback data for Node " + std::to_string(node_id_) + " is stale!");
+        feedback.velocity_dps = 0.0f;
     }
 
     return feedback.velocity_dps;
