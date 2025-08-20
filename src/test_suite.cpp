@@ -191,17 +191,32 @@ void test_status_and_errors(EuMotorNode& motor) {
     std::cout << "\nStatus test for motor " << motor.getNodeId() << " finished." << std::endl;
 }
 // +++ END OF NEW TEST CASE +++
-
+void test_clear_fault(EuMotorNode& motor) {
+    std::cout << "\nTesting clear fault for motor " << motor.getNodeId() << "..." << std::endl;
+    try {
+        if (!motor.clearFault()) {
+            std::cout << "Failed to clear fault for motor " << motor.getNodeId() << "." << std::endl;
+        } else {
+            std::cout << "Fault cleared for motor " << motor.getNodeId() << "." << std::endl;
+        }
+    } catch (const std::exception& e) {
+        std::cerr << "An error occurred during the fault clear test for motor " 
+    }
+}
 
 // Function to display help message
 void print_usage(const char* prog_name, const std::map<std::string, std::function<void(EuMotorNode&)>>& tests) {
-    std::cout << "Usage: " << prog_name << " --dev <id1> <id2>... --tests <test1> <test2>..." << std::endl;
-    std::cout << "   or: " << prog_name << " --dev <id1>... --tests all" << std::endl;
+    std::cout << "Usage: " << prog_name << " --dev <device_index> --motors <id1> <id2>... --tests <test1> <test2>..." << std::endl;
+    std::cout << "   or: " << prog_name << " --dev <device_index> --motors <id1>... --tests all" << std::endl;
+    std::cout << "\nParameters:" << std::endl;
+    std::cout << "  --dev <index>        Specify the CAN device index (e.g., 0 for the first device)." << std::endl;
+    std::cout << "  --motors <id...>     Specify one or more motor node IDs to test." << std::endl;
+    std::cout << "  --tests <name...>    Specify one or more tests to run, or 'all' to run all tests." << std::endl;
     std::cout << "\nAvailable tests:" << std::endl;
     for (const auto& pair : tests) {
         std::cout << "  - " << pair.first << std::endl;
     }
-    std::cout << "\nExample: " << prog_name << " --dev 1 --tests pp status" << std::endl;
+    std::cout << "\nExample: " << prog_name << " --dev 0 --motors 11 12 --tests pp status" << std::endl;
 }
 
 void run_test_on_all_motors(const std::string& test_name, 
@@ -253,33 +268,56 @@ int main(int argc, char* argv[]) {
     test_suite["ip"] = test_ip_mode;
     test_suite["feedback"] = test_feedback_mode;
     test_suite["status"] = test_status_and_errors;
+    test_suite["clearfault"] = test_clear_fault;
 
-    // --- Argument Parsing ---
-    // --- Argument Parsing ---
-    std::vector<huint8> node_ids;
+    // 新增 devIndex 变量并设置一个默认值
+    huint8 devIndex = 0; 
+    bool devIndexSet = false;
+    std::vector<huint8> motor_node_ids; // 重命名变量以提高清晰度
     std::vector<std::string> tests_to_run;
     
-    if (argc < 5) {
-        print_usage(argv[0],test_suite);
+    // 我们至少需要一个参数来显示帮助信息
+    if (argc < 2) {
+        print_usage(argv[0], test_suite);
         return 1;
     }
 
-    int i = 1;
-    while (i < argc) {
+    for (int i = 1; i < argc; ++i) {
         std::string arg = argv[i];
         if (arg == "--dev") {
-            i++;
-            while (i < argc && argv[i][0] != '-') {
-                node_ids.push_back(static_cast<huint8>(std::stoi(argv[i])));
-                i++;
+            // --dev 后面必须跟一个数字
+            if (i + 1 < argc) {
+                try {
+                    devIndex = static_cast<huint8>(std::stoi(argv[++i]));
+                    devIndexSet = true;
+                } catch (const std::invalid_argument& e) {
+                    std::cerr << "Error: Invalid number for --dev: " << argv[i] << std::endl;
+                    return 1;
+                }
+            } else {
+                std::cerr << "Error: --dev option requires one argument." << std::endl;
+                return 1;
             }
+        } else if (arg == "--motors") {
+            // --motors 后面可以跟一个或多个数字
+            i++; // 移动到第一个电机ID
+            while (i < argc && argv[i][0] != '-') {
+                try {
+                    motor_node_ids.push_back(static_cast<huint8>(std::stoi(argv[i])));
+                    i++;
+                } catch (const std::invalid_argument& e) {
+                    std::cerr << "Error: Invalid number for --motors: " << argv[i] << std::endl;
+                    return 1;
+                }
+            }
+            i--; // 回退一步，因为外层 for 循环会 i++
         } else if (arg == "--tests") {
-            i++;
+            // --tests 后面可以跟一个或多个测试名，或 'all'
+            i++; // 移动到第一个测试名
             if (i < argc && std::string(argv[i]) == "all") {
                 for (const auto& pair : test_suite) {
                     tests_to_run.push_back(pair.first);
                 }
-                i++;
             } else {
                 while (i < argc && argv[i][0] != '-') {
                     if (test_suite.count(argv[i])) {
@@ -289,15 +327,18 @@ int main(int argc, char* argv[]) {
                     }
                     i++;
                 }
+                i--; // 回退一步
             }
-        } else {
-            i++;
+        } else if (arg == "-h" || arg == "--help") {
+            print_usage(argv[0], test_suite);
+            return 0;
         }
     }
 
-    if (node_ids.empty() || tests_to_run.empty()) {
-        std::cerr << "Error: You must specify at least one device ID and one test." << std::endl;
-        print_usage(argv[0],test_suite);
+    // 检查必需的参数是否已提供
+    if (!devIndexSet || motor_node_ids.empty() || tests_to_run.empty()) {
+        std::cerr << "Error: You must specify --dev, at least one motor ID with --motors, and at least one test with --tests." << std::endl;
+        print_usage(argv[0], test_suite);
         return 1;
     }
 
@@ -309,7 +350,7 @@ int main(int argc, char* argv[]) {
         
         std::vector<std::unique_ptr<EuMotorNode>> motors;
         std::cout << "Creating motor nodes for IDs: ";
-        for (huint8 id : node_ids) {
+        for (huint8 id : motor_node_ids) {
             std::cout << (int)id << " ";
             motors.emplace_back(std::make_unique<EuMotorNode>(devIndex, id));
         }
