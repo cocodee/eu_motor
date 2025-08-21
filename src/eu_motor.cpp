@@ -96,13 +96,14 @@ bool EuMotorNode::applyTorque(hint16 target_torque_milli, huint32 torque_slope) 
 EuMotorNode::EuMotorNode(huint8 devIndex, huint8 nodeId, huint32 default_timeout_ms)
     : dev_index_(devIndex), node_id_(nodeId), timeout_ms_(default_timeout_ms) {
     // Read the gear ratio on construction
+    motor_id_ = {dev_index_, node_id_};
     if (!check(harmonic_getGearRatioShaftRevolutions(dev_index_, node_id_, &pulses_per_rev_, timeout_ms_), "Read Initial Gear Ratio")) {
         pulses_per_rev_ = 360000; // Fallback to a sensible default
-        MotorFeedbackManager::getInstance().setGearRatio(node_id_,pulses_per_rev_);
+        MotorFeedbackManager::getInstance().setGearRatio(motor_id_, pulses_per_rev_);
         std::cerr << "WARNING [Motor " << (int)node_id_ << "]: Failed to read gear ratio. Using default " 
                   << pulses_per_rev_ << ". Call setGearRatio() for accuracy." << std::endl;
     }else {
-        MotorFeedbackManager::getInstance().node_gear_ratios_[node_id_] = pulses_per_rev_;
+         MotorFeedbackManager::getInstance().setGearRatio(motor_id_, pulses_per_rev_);
         std::cout << "INFO [Motor] " << (int)node_id_ << "]: Gear ratio set to " << pulses_per_rev_ << "." << std::endl;
     }
     huint32 posWindow;
@@ -751,7 +752,7 @@ bool EuMotorNode::startErrorFeedbackTPDO(huint16 pdo_index, huint8 transmit_type
 
 MotorFeedbackData EuMotorNode::getLatestFeedback(){
     MotorFeedbackManager& feedback_manager_= MotorFeedbackManager::getInstance();
-    return feedback_manager_.getFeedback(node_id_);
+    return feedback_manager_.getFeedback(motor_id_);
 }
 
 // --- MotorFeedbackManager Implementation ---
@@ -765,11 +766,11 @@ void MotorFeedbackManager::registerCallback() {
     harmonic_setReceiveDataCallBack(validCanRecvCallback);
 }
 
-MotorFeedbackData MotorFeedbackManager::getFeedback(huint8 nodeId) {
+MotorFeedbackData MotorFeedbackManager::getFeedback(const MotorIdentifier& motor_id) {
     // Access member mutex
     std::lock_guard<std::mutex> lock(mutex_); 
-    if (feedback_data_.count(nodeId)) {
-        return feedback_data_[nodeId];
+    if (feedback_data_.count(motor_id)) {
+        return feedback_data_[motor_id];
     }
     return MotorFeedbackData{};
 }
@@ -787,7 +788,8 @@ void MotorFeedbackManager::canRecvCallback(int devIndex, const harmonic_CanMsg* 
     MotorFeedbackManager& instance = getInstance(); 
 
     huint32 function_code = frame->cob_id & 0xFF80;
-    
+    huint8 node_id = frame->cob_id & 0x007F;
+    MotorIdentifier motor_id = {static_cast<huint8>(devIndex), node_id};
     if (function_code == 0x80) {
         huint8 node_id = frame->cob_id & 0x0000007F;
         if (frame->len >= 3) { // 至少需要3个字节
@@ -820,25 +822,25 @@ void MotorFeedbackManager::canRecvCallback(int devIndex, const harmonic_CanMsg* 
         std::lock_guard<std::mutex> lock(instance.mutex_);
         
         // Access the instance's gear ratio map
-        if (instance.node_gear_ratios_.count(node_id) == 0) {
+        if (instance.node_gear_ratios_.count(motor_id) == 0) {
             std::cerr << "Warning: Ignoring TPDO1 from unregistered node " << (int)node_id << std::endl;
             return;
         }
-        huint32 ppr = instance.node_gear_ratios_[node_id];
+        huint32 ppr = instance.node_gear_ratios_[motor_id];
 
         hint32 pos_pulses = (frame->data[3] << 24) | (frame->data[2] << 16) | (frame->data[1] << 8) | frame->data[0];
         hint32 vel_pulses = (frame->data[7] << 24) | (frame->data[6] << 16) | (frame->data[5] << 8) | frame->data[4];
 
         // Update the instance's feedback data map
-        instance.feedback_data_[node_id].position_deg = pulsesToAngle(pos_pulses, ppr);
-        instance.feedback_data_[node_id].velocity_dps = pulsesToVelocity(vel_pulses, ppr);
-        instance.feedback_data_[node_id].last_update_time = std::chrono::steady_clock::now();
+        instance.feedback_data_[motor_id].position_deg = pulsesToAngle(pos_pulses, ppr);
+        instance.feedback_data_[motor_id].velocity_dps = pulsesToVelocity(vel_pulses, ppr);
+        instance.feedback_data_[motor_id].last_update_time = std::chrono::steady_clock::now();
     }
 
     if (function_code == 0x280 && frame->len == 4) {
         std::lock_guard<std::mutex> lock(instance.mutex_);
         huint8 node_id = frame->cob_id & 0x0000007F;
-        if (instance.node_gear_ratios_.count(node_id) == 0) {
+        if (instance.node_gear_ratios_.count(motor_id) == 0) {
             std::cerr << "Warning: Ignoring TPDO1 from unregistered node " << (int)node_id << std::endl;
             return;
         }
@@ -847,28 +849,28 @@ void MotorFeedbackManager::canRecvCallback(int devIndex, const harmonic_CanMsg* 
         huint16 error  = (frame->data[3] << 8) | frame->data[2];
 
         // 更新到共享数据结构中
-        instance.feedback_data_[node_id].status_word = status;
-        instance.feedback_data_[node_id].error_code = error;
+        instance.feedback_data_[motor_id].status_word = status;
+        instance.feedback_data_[motor_id].error_code = error;
         
         // 检查 Statusword 的 Fault 位 (Bit 3)
         bool fault_detected = (status & 0x0008) != 0;
         
         // 如果错误状态发生变化，则打印日志
-        if (fault_detected && !instance.feedback_data_[node_id].in_fault) {
+        if (fault_detected && !instance.feedback_data_[motor_id].in_fault) {
              std::cerr << "ERROR [Motor " << (int)node_id << "]: Fault detected via TPDO! StatusWord: 0x" 
                        << std::hex << status << ", ErrorCode: 0x" << error << std::dec << std::endl;
-        } else if (!fault_detected && instance.feedback_data_[node_id].in_fault) {
+        } else if (!fault_detected && instance.feedback_data_[motor_id].in_fault) {
              std::cout << "INFO [Motor " << (int)node_id << "]: Fault cleared via TPDO." << std::endl;
         }
 
-        instance.feedback_data_[node_id].in_fault = fault_detected;
+        instance.feedback_data_[motor_id].in_fault = fault_detected;
     }
 }
 
-void MotorFeedbackManager::setGearRatio(huint8 nodeId, huint32 pulses_per_rev) {
+void MotorFeedbackManager::setGearRatio(const MotorIdentifier& motor_id, huint32 pulses_per_rev) {
     // Access member mutex
     std::lock_guard<std::mutex> lock(mutex_); 
-    node_gear_ratios_[nodeId] = pulses_per_rev;
+    node_gear_ratios_[motor_id] = pulses_per_rev;
 }
 hreal32 MotorFeedbackManager::pulsesToAngle(hint32 pulses, huint32 pulses_per_rev) {
     if (pulses_per_rev == 0) return 0.0f;

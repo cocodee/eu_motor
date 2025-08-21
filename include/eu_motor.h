@@ -48,6 +48,19 @@ struct EmcyMessage {
  */
 using EmcyCallback = std::function<void(const EmcyMessage& emcy_msg)>;
 
+struct MotorIdentifier {
+    huint8 dev_index;
+    huint8 node_id;
+
+    // 为了让这个结构体能作为 std::map 的键，
+    // 我们需要重载 operator<
+    bool operator<(const MotorIdentifier& other) const {
+        if (dev_index < other.dev_index) return true;
+        if (dev_index > other.dev_index) return false;
+        return node_id < other.node_id;
+    }
+};
+
 // Forward declaration
 class EuMotorNode; 
 
@@ -62,16 +75,16 @@ class MotorFeedbackManager {
 public:
     static MotorFeedbackManager& getInstance();
     void registerCallback();
-    MotorFeedbackData getFeedback(huint8 nodeId);
+    MotorFeedbackData getFeedback(const MotorIdentifier& motor_id nodeId);
 
     // Make this public so EuMotorNode can access it
-    std::map<huint8, huint32> node_gear_ratios_;
+    std::map<MotorIdentifier, huint32> node_gear_ratios_;
 
     // 禁用拷贝和赋值
     MotorFeedbackManager(const MotorFeedbackManager&) = delete;
     MotorFeedbackManager& operator=(const MotorFeedbackManager&) = delete;
 
-    void setGearRatio(huint8 nodeId, huint32 pulses_per_rev);
+    void setGearRatio(const MotorIdentifier& motor_id, huint32 pulses_per_rev);
 
     static void canRecvCallback(int devIndex, const harmonic_CanMsg* frame);
 
@@ -86,7 +99,7 @@ private:
     static hreal32 pulsesToVelocity(hint32 pps, huint32 pulses_per_rev);
 
     // Change static members to regular members
-    std::map<huint8, MotorFeedbackData> feedback_data_;
+    std::map<MotorIdentifier, MotorFeedbackData> feedback_data_;
     std::mutex mutex_;
 };
 
@@ -324,6 +337,7 @@ private:
     huint32 pulses_per_rev_;
     harmonic_OperateMode current_mode_ = harmonic_OperateMode_Reserve;
     
+    MotorIdentifier motor_id_; 
     // Internal helper for checking API return codes
     bool check(int return_code, const std::string& operation_name) const;
 
