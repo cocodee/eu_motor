@@ -75,7 +75,7 @@ class MotorFeedbackManager {
 public:
     static MotorFeedbackManager& getInstance();
     void registerCallback();
-    MotorFeedbackData getFeedback(const MotorIdentifier& motor_id nodeId);
+    MotorFeedbackData getFeedback(const MotorIdentifier& motor_id);
 
     // Make this public so EuMotorNode can access it
     std::map<MotorIdentifier, huint32> node_gear_ratios_;
