@@ -88,6 +88,15 @@ public:
 
     static void canRecvCallback(int devIndex, const harmonic_CanMsg* frame);
 
+    bool setPositionGains(huint16 kp, huint16 ki);
+    bool setPositionKp(huint16 kp);
+    bool setPositionKi(huint16 ki);
+    bool setVelocityGains(huint16 kp, huint16 ki);
+    bool setVelocityKp(huint16 kp);
+    bool setVelocityKi(huint16 ki);
+    bool setCurrentGains(huint16 kp, huint16 ki);
+    bool setCurrentKp(huint16 kp);
+    bool setCurrentKi(huint16 ki);
 private:
     MotorFeedbackManager() = default;
     ~MotorFeedbackManager();

@@ -750,6 +750,58 @@ bool EuMotorNode::startErrorFeedbackTPDO(huint16 pdo_index, huint8 transmit_type
     return true;
 }
 
+
+// --- Position Loop Gains ---
+bool EuMotorNode::setPositionGains(huint16 kp, huint16 ki) {
+    if (!setPositionKp(kp)) return false;
+    if (!setPositionKi(ki)) return false;
+    return true;
+}
+
+bool EuMotorNode::setPositionKp(huint16 kp) {
+    // 调用库函数设置位置环 Kp (对象 0x2013, 子索引 3)
+    return check(harmonic_setServoPositionLoopKP(dev_index_, node_id_, kp, timeout_ms_), "Set Position Kp");
+}
+
+bool EuMotorNode::setPositionKi(huint16 ki) {
+    // 调用库函数设置位置环 Ki (对象 0x2013, 子索引 4)
+    return check(harmonic_setServoPositionLoopKI(dev_index_, node_id_, ki, timeout_ms_), "Set Position Ki");
+}
+
+// --- Velocity Loop Gains ---
+bool EuMotorNode::setVelocityGains(huint16 kp, huint16 ki) {
+    if (!setVelocityKp(kp)) return false;
+    if (!setVelocityKi(ki)) return false;
+    return true;
+}
+
+bool EuMotorNode::setVelocityKp(huint16 kp) {
+    // 调用库函数设置速度环 Kp (对象 0x2012, 子索引 3)
+    return check(harmonic_setServoVelocityLoopKP(dev_index_, node_id_, kp, timeout_ms_), "Set Velocity Kp");
+}
+
+bool EuMotorNode::setVelocityKi(huint16 ki) {
+    // 调用库函数设置速度环 Ki (对象 0x2012, 子索引 4)
+    return check(harmonic_setServoVelocityLoopKI(dev_index_, node_id_, ki, timeout_ms_), "Set Velocity Ki");
+}
+
+// --- Current Loop Gains ---
+bool EuMotorNode::setCurrentGains(huint16 kp, huint16 ki) {
+    if (!setCurrentKp(kp)) return false;
+    if (!setCurrentKi(ki)) return false;
+    return true;
+}
+
+bool EuMotorNode::setCurrentKp(huint16 kp) {
+    // 调用库函数设置电流环 Kp (对象 0x2010, 子索引 3)
+    return check(harmonic_setServoCurrentLoopKP(dev_index_, node_id_, kp, timeout_ms_), "Set Current Kp");
+}
+
+bool EuMotorNode::setCurrentKi(huint16 ki) {
+    // 调用库函数设置电流环 Ki (对象 0x2010, 子索引 4)
+    return check(harmonic_setServoCurrentLoopKI(dev_index_, node_id_, ki, timeout_ms_), "Set Current Ki");
+}
+
 MotorFeedbackData EuMotorNode::getLatestFeedback(){
     MotorFeedbackManager& feedback_manager_= MotorFeedbackManager::getInstance();
     return feedback_manager_.getFeedback(motor_id_);
