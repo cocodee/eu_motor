@@ -68,13 +68,16 @@ void test_pv_mode(EuMotorNode& motor) {
 
 void test_csp_mode(EuMotorNode& motor) {
     print_header("Cyclic Sync Position (CSP) Mode");
+    MotorFeedbackManager& feedback_manager_= MotorFeedbackManager::getInstance();
+    feedback_manager_.registerCallback();
+    motor.startAutoFeedback(0,255,20);
     if (motor.configureCspMode()) {
         std::cout << "Motor configured for CSP mode. Sending a sine wave trajectory." << std::endl;
         hreal32 start_pos = 0;
         for (int i = 0; i <= 20000; ++i) {
             hreal32 target_pos = start_pos + 10.0f * std::sin(2.0 * M_PI * i / 200.0);
             int result = motor.sendCspTargetPosition(target_pos, 0, true);
-            std::cout << "Sent target position: " << target_pos << " degrees" << " motor id"<< motor.getNodeId()<<" result:"<< result<< std::endl;
+            std::cout << "Sent target position: " << target_pos << " degrees" << "motor id"<< motor.getNodeId()<<" result:"<< result<< std::endl;
             motor.sendSync();
             std::this_thread::sleep_for(std::chrono::milliseconds(20));
         }
