@@ -76,7 +76,7 @@ void test_csp_mode(EuMotorNode& motor) {
             int result = motor.sendCspTargetPosition(target_pos, 0, true);
             std::cout << "Sent target position: " << target_pos << " degrees" << " result:"<< result<<std::endl;
             motor.sendSync();
-            std::this_thread::sleep_for(std::chrono::milliseconds(5));
+            std::this_thread::sleep_for(std::chrono::milliseconds(20));
         }
     } else {
         std::cerr << "Failed to configure CSP mode." << std::endl;
