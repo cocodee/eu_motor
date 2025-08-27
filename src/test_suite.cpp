@@ -73,7 +73,7 @@ void test_csp_mode(EuMotorNode& motor) {
     huint16 baudrate;
     //harmonic_getServoCanBaudrate(1,motor.getNodeId(),&baudrate);
     std::cout<<"node id:"<<motor.getNodeId()<<" baudrate:"<<baudrate<<std::endl;
-    motor.startAutoFeedback(0,255,20);
+    //motor.startAutoFeedback(0,255,20);
     if (motor.configureCspMode()) {
         std::cout << "Motor configured for CSP mode. Sending a sine wave trajectory." << std::endl;
         hreal32 start_pos = 0;
