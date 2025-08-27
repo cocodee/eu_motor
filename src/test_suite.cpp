@@ -82,6 +82,9 @@ void test_csp_mode(EuMotorNode& motor) {
             int result = motor.sendCspTargetPosition(target_pos, 0, true);
             std::cout << "Sent target position: " << target_pos << " degrees" << "motor id"<< motor.getNodeId()<<" result:"<< result<< std::endl;
             motor.sendSync();
+            if(result != HARMONIC_SUCCESS){
+                break;
+            }
             std::this_thread::sleep_for(std::chrono::milliseconds(20));
         }
     } else {
