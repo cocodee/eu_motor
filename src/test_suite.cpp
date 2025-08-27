@@ -73,7 +73,8 @@ void test_csp_mode(EuMotorNode& motor) {
         hreal32 start_pos = 0;
         for (int i = 0; i <= 200; ++i) {
             hreal32 target_pos = start_pos + 10.0f * std::sin(2.0 * M_PI * i / 200.0);
-            motor.sendCspTargetPosition(target_pos, 0, true);
+            int result = motor.sendCspTargetPosition(target_pos, 0, true);
+            std::cout << "Sent target position: " << target_pos << " degrees" << " result:"<< result<<std::endl;
             std::this_thread::sleep_for(std::chrono::milliseconds(5));
         }
     } else {
