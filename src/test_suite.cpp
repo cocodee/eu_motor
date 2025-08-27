@@ -69,7 +69,7 @@ void test_pv_mode(EuMotorNode& motor) {
 void test_csp_mode(EuMotorNode& motor) {
     print_header("Cyclic Sync Position (CSP) Mode");
     MotorFeedbackManager& feedback_manager_= MotorFeedbackManager::getInstance();
-    feedback_manager_.registerCallback();
+    //feedback_manager_.registerCallback();
     huint16 baudrate;
     //harmonic_getServoCanBaudrate(1,motor.getNodeId(),&baudrate);
     std::cout<<"node id:"<<motor.getNodeId()<<" baudrate:"<<baudrate<<std::endl;
