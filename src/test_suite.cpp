@@ -71,7 +71,7 @@ void test_csp_mode(EuMotorNode& motor) {
     MotorFeedbackManager& feedback_manager_= MotorFeedbackManager::getInstance();
     feedback_manager_.registerCallback();
     huint16 baudrate;
-    harmonic_getServoCanBaudrate(1,motor.getNodeId(),&baudrate);
+    //harmonic_getServoCanBaudrate(1,motor.getNodeId(),&baudrate);
     std::cout<<"node id:"<<motor.getNodeId()<<" baudrate:"<<baudrate<<std::endl;
     motor.startAutoFeedback(0,255,20);
     if (motor.configureCspMode()) {
