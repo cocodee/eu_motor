@@ -1,43 +1,101 @@
 #include <pybind11/pybind11.h>
-#include <pybind11/stl.h> // 用于绑定 std::vector, std::map 等
-#include <pybind11/functional.h> // 用于绑定 std::function
-#include <pybind11/chrono.h> // 用于绑定 std::chrono
+#include <pybind11/stl.h>
+#include <pybind11/functional.h>
+#include <pybind11/chrono.h>
 
 #include "eumotor.h" // 包含你要绑定的头文件
+#include "eu_harmonic.h" // 确保包含了新的头文件
 
 namespace py = pybind11;
 
-// 为了让 pybind11 知道如何处理 eu_harmonic.h 中定义的枚举类型，
-// 我们需要在这里声明它们。
-// 假设这些枚举在 eu_harmonic.h 中定义。你需要根据实际定义来填充。
-// py::enum_ 会自动处理底层的整数类型转换。
+// 根据 eu_harmonic.h 完整地绑定所有枚举
 void bind_enums(py::module_ &m) {
-    py::enum_<harmonic_OperateMode>(m, "OperateMode")
-        .value("No_Mode", harmonic_OperateMode_No_Mode)
-        .value("PP", harmonic_OperateMode_PP)
-        .value("PV", harmonic_OperateMode_PV)
-        .value("PT", harmonic_OperateMode_PT)
-        .value("HM", harmonic_OperateMode_HM)
-        .value("CSP", harmonic_OperateMode_CSP)
-        .value("CSV", harmonic_OperateMode_CSV)
-        .value("CST", harmonic_OperateMode_CST)
-        .value("IP", harmonic_OperateMode_IP)
-        .value("Reserve", harmonic_OperateMode_Reserve)
-        .export_values();
-
-    // 假设的设备类型和波特率，请根据 eu_harmonic.h 的实际内容修改
+    // 设备类型
     py::enum_<harmonic_DeviceType>(m, "DeviceType")
         .value("USB2CAN", harmonic_DeviceType_USB2CAN)
-        .value("Canable", harmonic_DeviceType_Cannable)
+        .value("Canable", harmonic_DeviceType_Canable) // 修正了拼写错误
         .export_values();
 
+    // 波特率
     py::enum_<harmonic_Baudrate>(m, "Baudrate")
-        .value("BPS_1M", harmonic_Baudrate_1000)
-        .value("BPS_500K", harmonic_Baudrate_500)
+        .value("BPS_10K", harmonic_Baudrate_10)
+        .value("BPS_20K", harmonic_Baudrate_20)
+        .value("BPS_50K", harmonic_Baudrate_50)
+        .value("BPS_100K", harmonic_Baudrate_100)
         .value("BPS_250K", harmonic_Baudrate_250)
+        .value("BPS_500K", harmonic_Baudrate_500)
+        .value("BPS_1M", harmonic_Baudrate_1000)
         .export_values();
-}
 
+    // 操作模式 (核心修正)
+    py::enum_<harmonic_OperateMode>(m, "OperateMode")
+        .value("AutoTuning", harmonic_OperateMode_AutoTuning)
+        .value("INLCalibration", harmonic_OperateMode_INLCalibration)
+        .value("RotorAligning", harmonic_OperateMode_RotorAligning)
+        .value("Reserve", harmonic_OperateMode_Reserve)
+        .value("PP", harmonic_OperateMode_ProfilePosition)      // 映射到 ProfilePosition
+        .value("Velocity", harmonic_OperateMode_Velocity)
+        .value("PV", harmonic_OperateMode_ProfileVelocity)      // 映射到 ProfileVelocity
+        .value("PT", harmonic_OperateMode_ProfileTorque)        // 映射到 ProfileTorque
+        .value("HM", harmonic_OperateMode_Homing)               // 映射到 Homing
+        .value("IP", harmonic_OperateMode_InterpolatedPosition) // 映射到 InterpolatedPosition
+        .value("CSP", harmonic_OperateMode_CyclicSyncPosition)  // 映射到 CyclicSyncPosition
+        .value("CSV", harmonic_OperateMode_CyclicSyncVelocity)  // 映射到 CyclicSyncVelocity
+        .value("CST", harmonic_OperateMode_CyclicSyncTorque)    // 映射到 CyclicSyncTorque
+        .value("TorquePositionFixed", harmonic_OperateMode_TorquePositionFixed)
+        .export_values();
+
+    // --- 新增的完整枚举绑定 ---
+
+    // NMT状态
+    py::enum_<harmonic_NMTState>(m, "NMTState")
+        .value("Start_Node", harmonic_NMTState_Start_Node)
+        .value("Stop_Node", harmonic_NMTState_Stop_Node)
+        .value("Enter_PreOperational", harmonic_NMTState_Enter_PreOperational)
+        .value("Reset_Node", harmonic_NMTState_Reset_Node)
+        .value("Reset_Comunication", harmonic_NMTState_Reset_Comunication)
+        .export_values();
+
+    // 节点状态
+    py::enum_<harmonic_NodeState>(m, "NodeState")
+        .value("Initialisation", harmonic_NodeState_Initialisation)
+        .value("Disconnected", harmonic_NodeState_Disconnected)
+        .value("Connecting", harmonic_NodeState_Connecting)
+        .value("Preparing", harmonic_NodeState_Preparing)
+        .value("Stopped", harmonic_NodeState_Stopped)
+        .value("Operational", harmonic_NodeState_Operational)
+        .value("Pre_operational", harmonic_NodeState_Pre_operational)
+        .value("Unknown_state", harmonic_NodeState_Unknown_state)
+        .export_values();
+
+    // 数据类型
+    py::enum_<harmonic_DataType>(m, "DataType")
+        .value("boolean", harmonic_DataType_boolean)
+        .value("int8", harmonic_DataType_int8)
+        .value("int16", harmonic_DataType_int16)
+        .value("int32", harmonic_DataType_int32)
+        .value("uint8", harmonic_DataType_uint8)
+        .value("uint16", harmonic_DataType_uint16)
+        .value("uint32", harmonic_DataType_uint32)
+        .value("real32", harmonic_DataType_real32)
+        .export_values();
+    
+    // 快速停止选项
+    py::enum_<harmonic_QuickStopOption>(m, "QuickStopOption")
+        .value("Disable_Drive", harmonic_QuickStopOption_Disable_Drive)
+        .value("Slow_Down_On_Slow_Down_Ramp", harmonic_QuickStopOption_Slow_Down_On_Slow_Down_Ramp)
+        .value("Slow_Down_On_Quick_Stop_Ramp", harmonic_QuickStopOption_Slow_Down_On_Quick_Stop_Ramp)
+        .value("Slow_Down_On_the_Current_Limit", harmonic_QuickStopOption_Slow_Down_On_the_Current_Limit)
+        .export_values(); // ...可以添加更多，如果需要的话
+
+    // 关机选项
+    py::enum_<harmonic_ShutdownOption>(m, "ShutdownOption")
+        .value("Disable_Drive_Function", harmonic_ShutdownOption_Disable_Drive_Function)
+        .value("Slown_With_Slow_Down_Ramp", harmonic_ShutdownOption_Slown_With_Slow_Down_Ramp)
+        .export_values();
+    
+    // ... 类似地可以添加 harmonic_DisableOperationOption, harmonic_HaltOption, harmonic_FaultReactionOption
+}
 
 PYBIND11_MODULE(eumotor_py, m) {
     m.doc() = "Python bindings for the EuMotor CANopen motor control library";
@@ -64,7 +122,6 @@ PYBIND11_MODULE(eumotor_py, m) {
         .def_readwrite("status_word", &MotorFeedbackData::status_word)
         .def_readwrite("error_code", &MotorFeedbackData::error_code)
         .def_readwrite("in_fault", &MotorFeedbackData::in_fault)
-        // std::chrono::time_point 会被自动转换成 Python 的 datetime.datetime 对象
         .def_readwrite("last_update_time", &MotorFeedbackData::last_update_time)
         .def("__repr__",
             [](const MotorFeedbackData &d) {
@@ -77,7 +134,6 @@ PYBIND11_MODULE(eumotor_py, m) {
         .def_readwrite("node_id", &EmcyMessage::node_id)
         .def_readwrite("error_code", &EmcyMessage::error_code)
         .def_readwrite("error_register", &EmcyMessage::error_register)
-        // 将 C 风格的数组绑定为一个只读属性，返回一个 Python 元组
         .def_property_readonly("manufacturer_specific", [](const EmcyMessage &msg) {
             return py::make_tuple(msg.manufacturer_specific[0], msg.manufacturer_specific[1],
                                   msg.manufacturer_specific[2], msg.manufacturer_specific[3],
@@ -91,18 +147,15 @@ PYBIND11_MODULE(eumotor_py, m) {
 
     // --- 绑定管理器类 ---
 
-    py::class_<CanNetworkManager>(m, "CanNetworkManager", "Singleton class to manage CAN hardware devices.")
+    py::class_<CanNetworkManager>(m, "CanNetworkManager", "Class to manage CAN hardware devices.")
         .def(py::init<>())
         .def("init_device", &CanNetworkManager::initDevice, 
              "Initializes a specific CAN device.",
              py::arg("dev_type"), py::arg("dev_index"), py::arg("baudrate"));
-        // 注意：我们没有绑定 getInstance，因为这个实现允许直接构造。
-        // 如果是严格的单例，需要用特殊方法绑定。
 
     py::class_<MotorFeedbackManager>(m, "MotorFeedbackManager", "Singleton to handle motor feedback.")
-        // 对于单例，我们不暴露构造函数，而是暴露一个静态的 get_instance 方法
         .def_static("get_instance", &MotorFeedbackManager::getInstance, 
-                    py::return_value_policy::reference, // 必须用引用策略
+                    py::return_value_policy::reference,
                     "Get the single instance of the MotorFeedbackManager.")
         .def("register_callback", &MotorFeedbackManager::registerCallback, "Register the global CAN receive callback.")
         .def("get_feedback", &MotorFeedbackManager::getFeedback, 
@@ -119,17 +172,14 @@ PYBIND11_MODULE(eumotor_py, m) {
         .def(py::init<huint8, huint8, huint32>(), 
              py::arg("dev_index"), py::arg("node_id"), py::arg("default_timeout_ms") = 100)
         
-        // --- 生命周期和状态管理 ---
         .def("enable", &EuMotorNode::enable, "Enables the motor and sets it to the specified operating mode.", py::arg("mode"))
         .def("disable", &EuMotorNode::disable, "Disables the motor.")
         .def("clear_fault", &EuMotorNode::clearFault, "Clears any existing faults on the motor.")
         .def("switch_mode", &EuMotorNode::switchMode, "Switches the motor's operating mode.", py::arg("new_mode"))
 
-        // --- 配置 ---
         .def("set_gear_ratio", &EuMotorNode::setGearRatio, "Sets the electronic gear ratio.", py::arg("pulses_per_revolution"))
         .def("set_as_home", &EuMotorNode::setAsHome, "Sets the current physical position as the new logical zero point.")
 
-        // --- 运动指令 ---
         .def("move_to", &EuMotorNode::moveTo, "Moves to a target angle in Profile Position (PP) mode.",
              py::arg("target_angle_deg"), py::arg("velocity_dps"), py::arg("acceleration_dpss"), py::arg("deceleration_dpss"))
         .def("move_at", &EuMotorNode::moveAt, "Rotates at a constant velocity in Profile Velocity (PV) mode.",
@@ -138,7 +188,6 @@ PYBIND11_MODULE(eumotor_py, m) {
              py::arg("target_torque_milli"), py::arg("torque_slope"))
         .def("stop", &EuMotorNode::stop, "Stops any ongoing motion.")
 
-        // --- 数据获取 ---
         .def("get_position", &EuMotorNode::getPosition, "Returns position in degrees.")
         .def("get_velocity", &EuMotorNode::getVelocity, "Returns velocity in degrees per second.")
         .def("get_torque", &EuMotorNode::getTorque, "Returns torque in per-mille of rated torque.")
@@ -147,7 +196,6 @@ PYBIND11_MODULE(eumotor_py, m) {
         .def("get_operation_mode", &EuMotorNode::getOperationMode, "Returns the current operation mode.")
         .def("get_latest_feedback", &EuMotorNode::getLatestFeedback, "Retrieves the most recent feedback data received via TPDO.")
 
-        // --- SDO 读写 (模板方法需要实例化) ---
         .def("read_u8", &EuMotorNode::read<huint8>)
         .def("read_u16", &EuMotorNode::read<huint16>)
         .def("read_u32", &EuMotorNode::read<huint32>)
@@ -163,7 +211,6 @@ PYBIND11_MODULE(eumotor_py, m) {
         .def("write_s32", &EuMotorNode::write<hint32>)
         .def("write_float", &EuMotorNode::write<hreal32>)
 
-        // --- 实时模式配置 ---
         .def("configure_csp_mode", &EuMotorNode::configureCspMode, "Configures the motor for CSP mode.", 
              py::arg("pdo_index") = 0, py::arg("use_sync") = true)
         .def("configure_cst_mode", &EuMotorNode::configureCstMode, "Configures the motor for CST mode.", 
@@ -173,7 +220,6 @@ PYBIND11_MODULE(eumotor_py, m) {
         .def("configure_ip_mode", &EuMotorNode::configureIpMode, "Configures the motor for IP mode.",
              py::arg("interpolation_period_ms"), py::arg("pdo_index") = 0, py::arg("use_sync") = true)
 
-        // --- 实时指令发送 ---
         .def("send_csp_target_position", &EuMotorNode::sendCspTargetPosition, "Sends target position for CSP mode.",
              py::arg("target_angle_deg"), py::arg("pdo_index") = 0, py::arg("is_sync") = true)
         .def("send_cst_target_torque", &EuMotorNode::sendCstTargetTorque, "Sends target torque for CST mode.",
@@ -184,7 +230,6 @@ PYBIND11_MODULE(eumotor_py, m) {
              py::arg("target_angle_deg"), py::arg("pdo_index") = 0, py::arg("is_sync") = true)
         .def("send_sync", &EuMotorNode::sendSync, "Broadcasts a SYNC message on the bus.")
         
-        // --- 自动反馈配置 ---
         .def("start_auto_feedback", &EuMotorNode::startAutoFeedback, "Configures and enables automatic data feedback via TPDO.",
              py::arg("pdo_index") = 0, py::arg("transmit_type") = 254, py::arg("event_timer_ms") = 100)
         .def("start_error_feedback_tpdo", &EuMotorNode::startErrorFeedbackTPDO, "Configures a TPDO for status and error feedback.",
@@ -192,7 +237,6 @@ PYBIND11_MODULE(eumotor_py, m) {
 
         .def("get_node_id", &EuMotorNode::getNodeId, "Gets the node ID of the motor.")
 
-        // --- 增益设置 ---
         .def("set_position_gains", &EuMotorNode::setPositionGains, py::arg("kp"), py::arg("ki"))
         .def("set_position_kp", &EuMotorNode::setPositionKp, py::arg("kp"))
         .def("set_position_ki", &EuMotorNode::setPositionKi, py::arg("ki"))
