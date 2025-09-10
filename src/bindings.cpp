@@ -153,8 +153,7 @@ PYBIND11_MODULE(eumotor_py, m) {
              "Initializes a specific CAN device.",
              py::arg("dev_type"), py::arg("dev_index"), py::arg("baudrate"));
 
-    py::class_<MotorFeedbackManager>(m, "MotorFeedbackManager", "Singleton to handle motor feedback.")
-        .def_static("get_instance", &MotorFeedbackManager::getInstance, 
+    py::class_<MotorFeedbackManager, std::unique_ptr<MotorFeedbackManager, py::nodelete>>(m, "MotorFeedbackManager", "Singleton to handle motor feedback.")        .def_static("get_instance", &MotorFeedbackManager::getInstance, 
                     py::return_value_policy::reference,
                     "Get the single instance of the MotorFeedbackManager.")
         .def("register_callback", &MotorFeedbackManager::registerCallback, "Register the global CAN receive callback.")
