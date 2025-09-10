@@ -20,7 +20,7 @@ pybind11_add_module(eumotor_py SHARED
     bindings.cpp # 这是我们上面写的绑定文件
 )
 # 将你的 C++ 库链接到 Python 模块
-target_link_libraries(eumotor_py PRIVATE eumotor)
+target_link_libraries(eumotor_py PRIVATE eu_motor)
 
 if(WIN32)
     target_link_libraries(eu_motor ${EYOU_LIB_PATH}/eu_harmonic.dll)
