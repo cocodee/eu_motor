@@ -96,7 +96,7 @@ void bind_enums(py::module_ &m) {
     // ... 类似地可以添加 harmonic_DisableOperationOption, harmonic_HaltOption, harmonic_FaultReactionOption
 }
 
-PYBIND11_MODULE(eumotor_py, m) {
+PYBIND11_MODULE(eu_motor_py, m) {
     m.doc() = "Python bindings for the EuMotor CANopen motor control library";
 
     // --- 绑定枚举 ---
