@@ -319,44 +319,10 @@ huint32 EuMotorNode::decelerationToPulses(huint32 dpss) const {
     return static_cast<huint32>((static_cast<hreal32>(dpss) / 360.0f) * pulses_per_rev_);
 }
 
-// Generic read/write templates - require full implementation for all types or a helper map
-template<typename T>
-T EuMotorNode::read(huint16 index, huint8 subIndex) {
-    // A full implementation requires mapping C++ types to harmonic_DataType
-    // This is a simplified example.
-    T value;
-    harmonic_DataType dt;
-    if (std::is_same<T, huint8>::value) dt = harmonic_DataType_uint8;
-    else if (std::is_same<T, huint16>::value) dt = harmonic_DataType_uint16;
-    else if (std::is_same<T, huint32>::value) dt = harmonic_DataType_uint32;
-    else if (std::is_same<T, hint8>::value) dt = harmonic_DataType_int8;
-    else if (std::is_same<T, hint16>::value) dt = harmonic_DataType_int16;
-    else if (std::is_same<T, hint32>::value) dt = harmonic_DataType_int32;
-    else throw std::invalid_argument("Unsupported type for read operation");
-
-    if(!check(harmonic_readDirectory(dev_index_, node_id_, index, subIndex, dt, &value, timeout_ms_), "Generic Read")) {
-        throw std::runtime_error("Failed to read SDO " + std::to_string(index));
-    }
-    return value;
-}
-
-template<typename T>
-bool EuMotorNode::write(huint16 index, huint8 subIndex, T value) {
-    harmonic_DataType dt;
-    if (std::is_same<T, huint8>::value) dt = harmonic_DataType_uint8;
-    else if (std::is_same<T, huint16>::value) dt = harmonic_DataType_uint16;
-    else if (std::is_same<T, huint32>::value) dt = harmonic_DataType_uint32;
-    else if (std::is_same<T, hint8>::value) dt = harmonic_DataType_int8;
-    else if (std::is_same<T, hint16>::value) dt = harmonic_DataType_int16;
-    else if (std::is_same<T, hint32>::value) dt = harmonic_DataType_int32;
-    else throw std::invalid_argument("Unsupported type for write operation");
-
-    return check(harmonic_writeDirectory(dev_index_, node_id_, index, subIndex, dt, &value, timeout_ms_), "Generic Write");
-}
 
 // Explicit template instantiations to avoid linker errors if definitions are in .cpp
-template bool EuMotorNode::write<huint32>(huint16, huint8, huint32);
-template huint32 EuMotorNode::read<huint32>(huint16, huint8);
+//template bool EuMotorNode::write<huint32>(huint16, huint8, huint32);
+//template huint32 EuMotorNode::read<huint32>(huint16, huint8);
 // ... add more instantiations as needed
 bool EuMotorNode::configureCspMode(huint16 pdo_index, bool use_sync) {
     std::cout << "INFO [Motor " << (int)node_id_ << "]: Configuring for CSP mode..." << std::endl;
