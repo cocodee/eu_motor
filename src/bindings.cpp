@@ -4,7 +4,6 @@
 #include <pybind11/chrono.h>
 
 #include "../include/eu_motor.h" // 包含你要绑定的头文件
-#include "../include/eu_harmonic.h" // 确保包含了新的头文件
 
 namespace py = pybind11;
 
