@@ -118,6 +118,7 @@ PYBIND11_MODULE(eu_motor_py, m) {
         .def(py::init<>())
         .def_readwrite("position_deg", &MotorFeedbackData::position_deg)
         .def_readwrite("velocity_dps", &MotorFeedbackData::velocity_dps)
+        .def_readwrite("torque_milli", &MotorFeedbackData::torque_milli)
         .def_readwrite("status_word", &MotorFeedbackData::status_word)
         .def_readwrite("error_code", &MotorFeedbackData::error_code)
         .def_readwrite("in_fault", &MotorFeedbackData::in_fault)

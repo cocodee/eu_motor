@@ -630,14 +630,15 @@ bool EuMotorNode::startAutoFeedback(huint16 pdo_index, huint8 transmit_type, hui
 
     // 3. Map the desired objects (Total size must be <= 8 bytes)
     // Mapping format: (Index << 16) | (SubIndex << 8) | (DataLength in bits)
-    huint32 pos_mapping = (0x6064 << 16) | (0x00 << 8) | 32; // Actual Position (4 bytes)
-    huint32 vel_mapping = (0x606C << 16) | (0x00 << 8) | 32; // Actual Velocity (4 bytes)
+    huint32 pos_mapping = (0x6064 << 16) | (0x00 << 8) | 32;    // Actual Position (4 bytes)
+    huint32 torque_mapping = (0x6077 << 16) | (0x00 << 8) | 16; // Actual Torque (2 bytes)
+    huint32 status_mapping = (0x6041 << 16) | (0x00 << 8) | 16; // Status Word (2 bytes)
 
     if (!check(harmonic_setTPDOMapped(dev_index_, node_id_, pdo_index, 0, pos_mapping), "Feedback: Map Position")) return false;
-    if (!check(harmonic_setTPDOMapped(dev_index_, node_id_, pdo_index, 1, vel_mapping), "Feedback: Map Velocity")) return false;
-
+    if (!check(harmonic_setTPDOMapped(dev_index_, node_id_, pdo_index, 1, torque_mapping), "Feedback: Map Torque")) return false;
+    if (!check(harmonic_setTPDOMapped(dev_index_, node_id_, pdo_index, 2, status_mapping), "Feedback: Map Status Word")) return false;
     // 4. Set the number of mapped objects
-    if (!check(harmonic_setTPDOMaxMappedCount(dev_index_, node_id_, pdo_index, 2), "Feedback: Set TPDO Map Count")) return false;
+    if (!check(harmonic_setTPDOMaxMappedCount(dev_index_, node_id_, pdo_index, 3), "Feedback: Set TPDO Map Count")) return false;
 
     // 5. Set the transmission type
     // 0 = Synchronous,event driven
@@ -846,12 +847,17 @@ void MotorFeedbackManager::canRecvCallback(int devIndex, const harmonic_CanMsg* 
         }
         huint32 ppr = instance.node_gear_ratios_[motor_id];
 
+        // Parse data according to the new mapping: Pos (4), Torque (2), Status (2)
         hint32 pos_pulses = (frame->data[3] << 24) | (frame->data[2] << 16) | (frame->data[1] << 8) | frame->data[0];
-        hint32 vel_pulses = (frame->data[7] << 24) | (frame->data[6] << 16) | (frame->data[5] << 8) | frame->data[4];
+        hint16 torque_milli = (frame->data[5] << 8) | frame->data[4];
+        huint16 status_word = (frame->data[7] << 8) | frame->data[6];
 
-        // Update the instance's feedback data map
-        instance.feedback_data_[motor_id].position_deg = pulsesToAngle(pos_pulses, ppr);
-        instance.feedback_data_[motor_id].velocity_dps = pulsesToVelocity(vel_pulses, ppr);
+        // Update the feedback data structure
+        auto& feedback = instance.feedback_data_[motor_id];
+        feedback.position_deg = pulsesToAngle(pos_pulses, ppr);
+        feedback.torque_milli = torque_milli;
+        feedback.status_word = status_word;
+        
         instance.feedback_data_[motor_id].last_update_time = std::chrono::steady_clock::now();
     }
 

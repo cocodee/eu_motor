@@ -23,7 +23,8 @@
 struct MotorFeedbackData {
     hreal32 position_deg = 0.0f;
     hreal32 velocity_dps = 0.0f;
-
+    hint16 torque_milli = 0;
+    
     huint16 status_word = 0;
     huint16 error_code = 0;
     bool in_fault = false; // 一个方便的标志位
