@@ -296,6 +296,61 @@ harmonic_OperateMode EuMotorNode::getOperationMode() {
     return mode;
 }
 
+MotorDiagnostics EuMotorNode::getDiagnostics() {
+    MotorDiagnostics diagnostics;
+    diagnostics.node_id = node_id_;
+
+    MotorFeedbackData feedback = getLatestFeedback();
+    if (feedback.last_update_time != std::chrono::steady_clock::time_point{}) {
+        diagnostics.latest_feedback_age_ms = static_cast<double>(
+            std::chrono::duration_cast<std::chrono::milliseconds>(
+                std::chrono::steady_clock::now() - feedback.last_update_time
+            ).count()
+        );
+        diagnostics.status_word = feedback.status_word;
+        diagnostics.error_code = feedback.error_code;
+        diagnostics.in_fault = feedback.in_fault;
+    }
+
+    try {
+        diagnostics.status_word = getStatusWord();
+        diagnostics.in_fault = (diagnostics.status_word & 0x0008) != 0;
+    } catch (const std::exception& e) {
+        diagnostics.warnings.push_back(std::string("Failed to read status word: ") + e.what());
+    }
+
+    try {
+        diagnostics.error_code = getErrorCode();
+    } catch (const std::exception& e) {
+        diagnostics.warnings.push_back(std::string("Failed to read error code: ") + e.what());
+    }
+
+    try {
+        diagnostics.operation_mode = static_cast<int>(getOperationMode());
+    } catch (const std::exception& e) {
+        diagnostics.warnings.push_back(std::string("Failed to read operation mode: ") + e.what());
+    }
+
+    try {
+        huint8 error_count = read<huint8>(0x1003, 0);
+        huint8 limit = error_count < 8 ? error_count : 8;
+        for (huint8 sub_index = 1; sub_index <= limit; ++sub_index) {
+            try {
+                diagnostics.error_history.push_back(read<huint32>(0x1003, sub_index));
+            } catch (const std::exception& e) {
+                diagnostics.warnings.push_back(
+                    std::string("Failed to read error history entry ") + std::to_string(sub_index) + ": " + e.what()
+                );
+            }
+        }
+    } catch (const std::exception& e) {
+        diagnostics.warnings.push_back(std::string("Failed to read error history: ") + e.what());
+    }
+
+    diagnostics.last_emcy = MotorFeedbackManager::getInstance().getLastEmcy(motor_id_);
+    return diagnostics;
+}
+
 // Unit conversion implementations
 hint32 EuMotorNode::angleToPulses(hreal32 angle_deg) const {
     return static_cast<hint32>((angle_deg / 360.0f) * pulses_per_rev_);
@@ -794,6 +849,15 @@ MotorFeedbackData MotorFeedbackManager::getFeedback(const MotorIdentifier& motor
     return MotorFeedbackData{};
 }
 
+std::optional<EmcyMessage> MotorFeedbackManager::getLastEmcy(const MotorIdentifier& motor_id) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    auto it = last_emcy_.find(motor_id);
+    if (it == last_emcy_.end()) {
+        return std::nullopt;
+    }
+    return it->second;
+}
+
 void emptyCanRecvCallback(int devIndex, const harmonic_CanMsg* frame){
     //std::cout << "INFO [MotorFeedbackManager]: empty callback" << std::endl;
 }
@@ -825,8 +889,14 @@ void MotorFeedbackManager::canRecvCallback(int devIndex, const harmonic_CanMsg* 
                       << "Code: 0x" << std::hex << msg.error_code << std::dec
                       << ", Register: 0x" << std::hex << (int)msg.error_register << std::dec << std::endl;
 
+            {
+                std::lock_guard<std::mutex> lock(instance.mutex_);
+                instance.last_emcy_[motor_id] = msg;
+                instance.feedback_data_[motor_id].error_code = msg.error_code;
+                instance.feedback_data_[motor_id].in_fault = true;
+            }
+
             // 如果有注册的回调函数，则调用它
-            //std::lock_guard<std::mutex> lock(instance.mutex_);
             //if (instance.emcy_callback_) {
             //    instance.emcy_callback_(msg);
             //}

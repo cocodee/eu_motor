@@ -145,6 +145,24 @@ PYBIND11_MODULE(eu_motor_py, m) {
                        ", code=0x" + std::to_string(msg.error_code) + ">";
             });
 
+    py::class_<MotorDiagnostics>(m, "MotorDiagnostics")
+        .def(py::init<>())
+        .def_readwrite("node_id", &MotorDiagnostics::node_id)
+        .def_readwrite("status_word", &MotorDiagnostics::status_word)
+        .def_readwrite("error_code", &MotorDiagnostics::error_code)
+        .def_readwrite("in_fault", &MotorDiagnostics::in_fault)
+        .def_readwrite("operation_mode", &MotorDiagnostics::operation_mode)
+        .def_readwrite("latest_feedback_age_ms", &MotorDiagnostics::latest_feedback_age_ms)
+        .def_readwrite("error_history", &MotorDiagnostics::error_history)
+        .def_readwrite("warnings", &MotorDiagnostics::warnings)
+        .def_readwrite("last_emcy", &MotorDiagnostics::last_emcy)
+        .def("__repr__",
+            [](const MotorDiagnostics &d) {
+                return "<MotorDiagnostics node=" + std::to_string(d.node_id) +
+                       ", status=0x" + std::to_string(d.status_word) +
+                       ", error=0x" + std::to_string(d.error_code) + ">";
+            });
+
     // --- 绑定管理器类 ---
 
     py::class_<CanNetworkManager>(m, "CanNetworkManager", "Class to manage CAN hardware devices.")
@@ -159,6 +177,9 @@ PYBIND11_MODULE(eu_motor_py, m) {
         .def("register_callback", &MotorFeedbackManager::registerCallback, "Register the global CAN receive callback.")
         .def("get_feedback", &MotorFeedbackManager::getFeedback, 
              "Get the latest feedback data for a motor.",
+             py::arg("motor_id"))
+        .def("get_last_emcy", &MotorFeedbackManager::getLastEmcy,
+             "Get the latest EMCY message for a motor, if one has been received.",
              py::arg("motor_id"))
         .def("set_gear_ratio", &MotorFeedbackManager::setGearRatio,
              "Set gear ratio for a motor to correctly parse feedback.",
@@ -194,6 +215,7 @@ PYBIND11_MODULE(eu_motor_py, m) {
         .def("get_error_code", &EuMotorNode::getErrorCode, "Returns the last error code.")
         .def("get_operation_mode", &EuMotorNode::getOperationMode, "Returns the current operation mode.")
         .def("get_latest_feedback", &EuMotorNode::getLatestFeedback, "Retrieves the most recent feedback data received via TPDO.")
+        .def("get_diagnostics", &EuMotorNode::getDiagnostics, "Returns structured status and error diagnostics.")
 
         .def("read_u8", &EuMotorNode::read<huint8>)
         .def("read_u16", &EuMotorNode::read<huint16>)

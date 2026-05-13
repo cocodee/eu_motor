@@ -13,6 +13,7 @@
 #include <map>
 #include <condition_variable>
 #include <functional>
+#include <optional>
 
 // --- Data Structures for Feedback ---
 
@@ -36,10 +37,10 @@ struct MotorFeedbackData {
  * @brief EMCY 报文的数据结构
  */
 struct EmcyMessage {
-    huint8  node_id;
-    huint16 error_code;
-    huint8  error_register;
-    huint8  manufacturer_specific[5];
+    huint8  node_id = 0;
+    huint16 error_code = 0;
+    huint8  error_register = 0;
+    huint8  manufacturer_specific[5] = {0, 0, 0, 0, 0};
 };
 
 /**
@@ -48,6 +49,18 @@ struct EmcyMessage {
  * @param emcy_msg 包含详细错误信息的EMCY报文
  */
 using EmcyCallback = std::function<void(const EmcyMessage& emcy_msg)>;
+
+struct MotorDiagnostics {
+    huint8 node_id = 0;
+    huint16 status_word = 0;
+    huint16 error_code = 0;
+    bool in_fault = false;
+    int operation_mode = 0;
+    double latest_feedback_age_ms = -1.0;
+    std::vector<huint32> error_history;
+    std::vector<std::string> warnings;
+    std::optional<EmcyMessage> last_emcy;
+};
 
 struct MotorIdentifier {
     huint8 dev_index;
@@ -77,6 +90,7 @@ public:
     static MotorFeedbackManager& getInstance();
     void registerCallback();
     MotorFeedbackData getFeedback(const MotorIdentifier& motor_id);
+    std::optional<EmcyMessage> getLastEmcy(const MotorIdentifier& motor_id);
 
     // Make this public so EuMotorNode can access it
     std::map<MotorIdentifier, huint32> node_gear_ratios_;
@@ -102,6 +116,7 @@ private:
 
     // Change static members to regular members
     std::map<MotorIdentifier, MotorFeedbackData> feedback_data_;
+    std::map<MotorIdentifier, EmcyMessage> last_emcy_;
     std::mutex mutex_;
 };
 
@@ -240,6 +255,7 @@ public:
     huint16 getStatusWord();    // Returns the raw status word.
     huint16 getErrorCode();     // Returns the last error code.
     harmonic_OperateMode getOperationMode(); // Returns the current operation mode.
+    MotorDiagnostics getDiagnostics();
 
     /**
      * @brief Retrieves the most recent feedback data received via TPDO.
