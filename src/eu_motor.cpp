@@ -646,7 +646,7 @@ void EuMotorNode::sendSync() {
 
 bool EuMotorNode::startAutoFeedback(huint16 pdo_index, huint8 transmit_type, huint16 event_timer_ms) {
     std::cout << "INFO [Motor " << (int)node_id_ << "]: Configuring automatic feedback (TPDO" << pdo_index + 1 << ")..." << std::endl;
-    std::cout << "INFO [Motor " << (int)node_id_ << "]: Configuring automatic feedback transmit type "<< transmit_type << " ..." << std::endl;
+    std::cout << "INFO [Motor " << (int)node_id_ << "]: Configuring automatic feedback transmit type "<< (int)transmit_type << " ..." << std::endl;
 
     // TPDOs must be configured in Pre-Operational state
     if (!check(harmonic_setNodeState(dev_index_, node_id_, harmonic_NMTState_Enter_PreOperational), "Feedback: Enter Pre-Op")) return false;
@@ -754,8 +754,8 @@ bool EuMotorNode::startErrorFeedbackTPDO(huint16 pdo_index, huint8 transmit_type
 void EuMotorNode::printTpdoConfig() {
     std::cout << "=== TPDO Configuration for Motor " << (int)node_id_ << " ===" << std::endl;
     for (huint16 pdo = 0; pdo < 4; ++pdo) {
-        std::cout << "--- TPDO" << (pdo + 1) << " (comm 0x18" << std::hex << std::uppercase << pdo
-                  << "00, map 0x1A" << pdo << "00)" << std::dec << std::nouppercase << " ---" << std::endl;
+        std::cout << "--- TPDO" << (pdo + 1) << " (comm 0x" << std::hex << std::uppercase << (0x1800 + pdo)
+                  << ", map 0x" << (0x1A00 + pdo) << ")" << std::dec << std::nouppercase << " ---" << std::endl;
 
         huint8 paras_count = 0;
         if (check(harmonic_getTPDOMaxParasCount(dev_index_, node_id_, pdo, &paras_count, timeout_ms_), "TPDO Max Paras Count")) {

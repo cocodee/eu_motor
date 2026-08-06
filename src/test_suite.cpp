@@ -130,6 +130,15 @@ void test_feedback_mode(EuMotorNode& motor) {
     // Use a shorter event timer for more frequent updates
     if (motor.startAutoFeedback(0, 255, 20)) {
         std::cout << "Automatic feedback started. Moving motor to 180 degrees..." << std::endl;
+        // 电机必须先使能（新版固件才会上报位置 TPDO）。
+        // 注：EuMotorNode::enable() 目前只清故障+切模式，没真正写控制字，这里直接写 0x6040 走 402 状态机。
+        motor.write<huint16>(0x6040, 0, 0x06); // Shutdown → ReadyToSwitchOn
+        std::this_thread::sleep_for(std::chrono::milliseconds(50));
+        motor.write<huint16>(0x6040, 0, 0x07); // Switch On → SwitchedOn
+        std::this_thread::sleep_for(std::chrono::milliseconds(50));
+        motor.write<huint16>(0x6040, 0, 0x0F); // Enable Operation
+        std::this_thread::sleep_for(std::chrono::milliseconds(50));
+        std::cout << "Motor enabled (controlword 0x0F)." << std::endl;
         // Print the current TPDO configuration for debugging
         motor.printTpdoConfig();
         //motor.enable(harmonic_OperateMode_ProfilePosition);
