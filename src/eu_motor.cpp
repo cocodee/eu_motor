@@ -670,6 +670,15 @@ bool EuMotorNode::startAutoFeedback(huint16 pdo_index, huint8 transmit_type, hui
     // 4. Set the number of mapped objects
     if (!check(harmonic_setTPDOMaxMappedCount(dev_index_, node_id_, pdo_index, 3), "Feedback: Set TPDO Map Count")) return false;
 
+    // 4b. Configure the master-side local RPDO to accept this TPDO (mirror of test_pdo.cpp).
+    // 若不配置，主站（CANable）不会把 TPDO 帧上抛给接收回调，反馈将收不到。
+    check(harmonic_setLocalRPDOCobId(pdo_index, tpd_cobid), "Feedback: Local RPDO COB-ID");
+    check(harmonic_setLocalRPDOMaxMappedCount(pdo_index, 0), "Feedback: Clear Local RPDO Map");
+    check(harmonic_setLocalRPDOMapped(pdo_index, 0, pos_mapping), "Feedback: Local RPDO Map Pos");
+    check(harmonic_setLocalRPDOMapped(pdo_index, 1, torque_mapping), "Feedback: Local RPDO Map Torque");
+    check(harmonic_setLocalRPDOMapped(pdo_index, 2, status_mapping), "Feedback: Local RPDO Map Status");
+    check(harmonic_setLocalRPDOMaxMappedCount(pdo_index, 3), "Feedback: Set Local RPDO Map Count");
+
     // 5. Set the transmission type
     // 0 = Synchronous,event driven
     // 1 = Synchronous,periodic

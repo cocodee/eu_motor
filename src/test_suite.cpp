@@ -138,7 +138,8 @@ void test_feedback_mode(EuMotorNode& motor) {
         std::this_thread::sleep_for(std::chrono::milliseconds(50));
         motor.write<huint16>(0x6040, 0, 0x0F); // Enable Operation
         std::this_thread::sleep_for(std::chrono::milliseconds(50));
-        std::cout << "Motor enabled (controlword 0x0F)." << std::endl;
+        std::cout << "Motor enabled (controlword 0x0F). Statusword: 0x"
+                  << std::hex << motor.getStatusWord() << std::dec << std::endl;
         // Print the current TPDO configuration for debugging
         motor.printTpdoConfig();
         //motor.enable(harmonic_OperateMode_ProfilePosition);
