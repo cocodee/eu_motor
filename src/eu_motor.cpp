@@ -96,20 +96,42 @@ bool EuMotorNode::applyTorque(hint16 target_torque_milli, huint32 torque_slope) 
 
 EuMotorNode::EuMotorNode(huint8 devIndex, huint8 nodeId, huint32 default_timeout_ms)
     : dev_index_(devIndex), node_id_(nodeId), timeout_ms_(default_timeout_ms) {
-    // Read the gear ratio on construction: pulses_per_rev = motor_rev / shaft_rev
+    // Read the gear ratio on construction.
+    // 老电机: 0x6091-2 (shaft revolutions) 直接就是每轴转脉冲数 (如 5308416)，非 1 即采用。
+    // 新电机: 0x6091-2 为 1，改用 0x2025(编码器单圈) × (0x26A2/0x26A3 减速比)。
     motor_id_ = {dev_index_, node_id_};
-    huint32 motor_rev = 0;
     huint32 shaft_rev = 0;
-    bool gear_ok = check(harmonic_getGearRatioMotorRevolutions(dev_index_, node_id_, &motor_rev, timeout_ms_), "Read Motor Revolutions")
-                && check(harmonic_getGearRatioShaftRevolutions(dev_index_, node_id_, &shaft_rev, timeout_ms_), "Read Shaft Revolutions");
-    if (!gear_ok || shaft_rev == 0) {
+    bool gear_ok = false;
+
+    // 1) Old-motor path: read shaft revolutions (0x6091-2).
+    if (check(harmonic_getGearRatioShaftRevolutions(dev_index_, node_id_, &shaft_rev, timeout_ms_), "Read Shaft Revolutions")
+        && shaft_rev != 1 && shaft_rev != 0) {
+        pulses_per_rev_ = shaft_rev;   // 老电机直接采用 shaft_rev
+        gear_ok = true;
+    } else {
+        // 2) New-motor path: encoder single turn (0x2025) × gear ratio (0x26A2/0x26A3).
+        huint32 enc_single_turn = 0;
+        huint16 new_motor_rev = 0;
+        huint16 new_shaft_rev = 0;
+        int rc = harmonic_readDirectory(dev_index_, node_id_, 0x2025, 0, harmonic_DataType_uint32, &enc_single_turn, timeout_ms_);
+        if (rc == HARMONIC_SUCCESS) {
+            rc = harmonic_readDirectory(dev_index_, node_id_, 0x26A2, 0, harmonic_DataType_uint16, &new_motor_rev, timeout_ms_);
+        }
+        if (rc == HARMONIC_SUCCESS) {
+            rc = harmonic_readDirectory(dev_index_, node_id_, 0x26A3, 0, harmonic_DataType_uint16, &new_shaft_rev, timeout_ms_);
+        }
+        if (rc == HARMONIC_SUCCESS && new_shaft_rev != 0) {
+            pulses_per_rev_ = static_cast<huint32>((hreal32)enc_single_turn * (hreal32)new_motor_rev / (hreal32)new_shaft_rev);
+            gear_ok = true;
+        }
+    }
+
+    if (!gear_ok) {
         pulses_per_rev_ = 360000; // Fallback to a sensible default
         MotorFeedbackManager::getInstance().setGearRatio(motor_id_, pulses_per_rev_);
         std::cerr << "WARNING [Motor " << (int)node_id_ << "]: Failed to read gear ratio. Using default "
                   << pulses_per_rev_ << ". Call setGearRatio() for accuracy." << std::endl;
     }else {
-        // pulses_per_rev_ = motor_revolutions / shaft_revolutions
-        pulses_per_rev_ = static_cast<huint32>((hreal32)motor_rev / (hreal32)shaft_rev);
         MotorFeedbackManager::getInstance().setGearRatio(motor_id_, pulses_per_rev_);
         std::cout << "INFO [Motor " << (int)node_id_ << "]: Gear ratio set to "
                   << pulses_per_rev_ << " (pulses per rev)." << std::endl;
