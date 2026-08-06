@@ -206,17 +206,34 @@ void test_status_and_errors(EuMotorNode& motor) {
 
         // --- New Motor Gear Ratio (SDO 0x26A2 / 0x26A3) ---
         // 新版电机的减速比计算依据：两个字段都是 UINT16（2 字节无符号）。
+        // 错误码 7 = SDO 读超时无响应，可能是子索引不对或本电机无此对象，因此 sub 0/1 都试并打印结果。
         std::cout << "\n--- New Motor Gear Ratio (SDO 0x26A2 / 0x26A3) ---" << std::endl;
-        try {
-            huint16 new_motor_rev = motor.read<huint16>(0x26A2, 1);
-            huint16 new_shaft_rev = motor.read<huint16>(0x26A3, 1);
-            std::cout << "Motor revolutions (0x26A2): " << new_motor_rev << std::endl;
-            std::cout << "Shaft revolutions (0x26A3): " << new_shaft_rev << std::endl;
-            if (new_shaft_rev != 0) {
-                std::cout << "Gear ratio (motor/shaft): " << new_motor_rev << "/" << new_shaft_rev << std::endl;
+        huint16 new_motor_rev = 0;
+        huint16 new_shaft_rev = 0;
+        bool motor_ok = false;
+        bool shaft_ok = false;
+        for (huint8 sub : {0, 1}) {
+            if (!motor_ok) {
+                try {
+                    new_motor_rev = motor.read<huint16>(0x26A2, sub);
+                    motor_ok = true;
+                    std::cout << "  0x26A2 sub " << (int)sub << " = " << new_motor_rev << std::endl;
+                } catch (const std::runtime_error& e) {
+                    std::cout << "  0x26A2 sub " << (int)sub << " failed: " << e.what() << std::endl;
+                }
             }
-        } catch (const std::runtime_error& e) {
-            std::cout << "Could not read new motor gear ratio SDO: " << e.what() << std::endl;
+            if (!shaft_ok) {
+                try {
+                    new_shaft_rev = motor.read<huint16>(0x26A3, sub);
+                    shaft_ok = true;
+                    std::cout << "  0x26A3 sub " << (int)sub << " = " << new_shaft_rev << std::endl;
+                } catch (const std::runtime_error& e) {
+                    std::cout << "  0x26A3 sub " << (int)sub << " failed: " << e.what() << std::endl;
+                }
+            }
+        }
+        if (motor_ok && shaft_ok && new_shaft_rev != 0) {
+            std::cout << "Gear ratio (motor/shaft): " << new_motor_rev << "/" << new_shaft_rev << std::endl;
         }
 
         huint16 status = motor.getStatusWord();
