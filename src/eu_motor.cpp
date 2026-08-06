@@ -1,5 +1,6 @@
 #include "../include/eu_motor.h"
 #include <cstddef>
+#include <iomanip>
 #include <sstream>
 
 /**
@@ -872,7 +873,18 @@ void validCanRecvCallback(int devIndex, const harmonic_CanMsg* frame){
 }
 void MotorFeedbackManager::canRecvCallback(int devIndex, const harmonic_CanMsg* frame) {
     // This is a static function, so it needs to get the instance to access members
-    MotorFeedbackManager& instance = getInstance(); 
+    MotorFeedbackManager& instance = getInstance();
+
+    // === DEBUG: dump the raw CAN frame ===
+    std::cout << "DBG [CAN] dev=" << (int)devIndex
+              << " cob_id=0x" << std::hex << std::uppercase << frame->cob_id
+              << " len=" << std::dec << (int)frame->len << " data=";
+    for (huint8 i = 0; i < frame->len; ++i) {
+        std::cout << std::hex << std::uppercase << std::setw(2) << std::setfill('0')
+                  << (int)frame->data[i] << std::setfill(' ');
+        if (i + 1 < frame->len) std::cout << " ";
+    }
+    std::cout << std::dec << std::nouppercase << std::endl;
 
     huint32 function_code = frame->cob_id & 0xFF80;
     huint8 node_id = frame->cob_id & 0x007F;

@@ -204,6 +204,21 @@ void test_status_and_errors(EuMotorNode& motor) {
             std::cout << "Could not read gear ratio SDO: " << e.what() << std::endl;
         }
 
+        // --- New Motor Gear Ratio (SDO 0x26A2 / 0x26A3) ---
+        // 新版电机的减速比计算依据：值按有符号 int 读取，计算方式与 0x6091 类似。
+        std::cout << "\n--- New Motor Gear Ratio (SDO 0x26A2 / 0x26A3) ---" << std::endl;
+        try {
+            hint32 new_motor_rev = motor.read<hint32>(0x26A2, 1);
+            hint32 new_shaft_rev = motor.read<hint32>(0x26A3, 1);
+            std::cout << "Motor revolutions (0x26A2): " << new_motor_rev << std::endl;
+            std::cout << "Shaft revolutions (0x26A3): " << new_shaft_rev << std::endl;
+            if (new_shaft_rev != 0) {
+                std::cout << "Gear ratio (motor/shaft): " << new_motor_rev << "/" << new_shaft_rev << std::endl;
+            }
+        } catch (const std::runtime_error& e) {
+            std::cout << "Could not read new motor gear ratio SDO: " << e.what() << std::endl;
+        }
+
         huint16 status = motor.getStatusWord();
         print_status_word(status);
 
