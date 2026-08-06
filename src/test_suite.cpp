@@ -205,11 +205,11 @@ void test_status_and_errors(EuMotorNode& motor) {
         }
 
         // --- New Motor Gear Ratio (SDO 0x26A2 / 0x26A3) ---
-        // 新版电机的减速比计算依据：值按有符号 int 读取，计算方式与 0x6091 类似。
+        // 新版电机的减速比计算依据：两个字段都是 UINT16（2 字节无符号）。
         std::cout << "\n--- New Motor Gear Ratio (SDO 0x26A2 / 0x26A3) ---" << std::endl;
         try {
-            hint32 new_motor_rev = motor.read<hint32>(0x26A2, 1);
-            hint32 new_shaft_rev = motor.read<hint32>(0x26A3, 1);
+            huint16 new_motor_rev = motor.read<huint16>(0x26A2, 1);
+            huint16 new_shaft_rev = motor.read<huint16>(0x26A3, 1);
             std::cout << "Motor revolutions (0x26A2): " << new_motor_rev << std::endl;
             std::cout << "Shaft revolutions (0x26A3): " << new_shaft_rev << std::endl;
             if (new_shaft_rev != 0) {
