@@ -236,6 +236,20 @@ void test_status_and_errors(EuMotorNode& motor) {
             std::cout << "Gear ratio (motor/shaft): " << new_motor_rev << "/" << new_shaft_rev << std::endl;
         }
 
+        // --- New Motor Encoder Resolution (SDO 0x2023 / 0x2025) ---
+        // 新版固件：0x2023=编码器分辨率(LPR)，0x2025=单圈分辨率。都按 UINT32 读原始值。
+        std::cout << "\n--- New Motor Encoder Resolution (SDO 0x2023 / 0x2025) ---" << std::endl;
+        for (huint16 obj_idx : {0x2023, 0x2025}) {
+            try {
+                huint32 res = motor.read<huint32>(obj_idx, 0);
+                std::cout << "  0x" << std::hex << std::uppercase << obj_idx << std::dec << std::nouppercase
+                          << " sub 0 = " << res << std::endl;
+            } catch (const std::runtime_error& e) {
+                std::cout << "  0x" << std::hex << std::uppercase << obj_idx << std::dec << std::nouppercase
+                          << " sub 0 failed: " << e.what() << std::endl;
+            }
+        }
+
         huint16 status = motor.getStatusWord();
         print_status_word(status);
 
