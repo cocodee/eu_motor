@@ -233,6 +233,7 @@ PYBIND11_MODULE(eu_motor_py, m) {
              py::arg("pdo_index") = 0, py::arg("transmit_type") = 254, py::arg("event_timer_ms") = 100)
         .def("start_error_feedback_tpdo", &EuMotorNode::startErrorFeedbackTPDO, "Configures a TPDO for status and error feedback.",
              py::arg("pdo_index"), py::arg("transmit_type") = 254, py::arg("event_timer_ms") = 10)
+        .def("print_tpdo_config", &EuMotorNode::printTpdoConfig, "Prints the current TPDO configuration for debugging.")
 
         .def("get_node_id", &EuMotorNode::getNodeId, "Gets the node ID of the motor.")
 

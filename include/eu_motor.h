@@ -329,7 +329,13 @@ public:
      * @param event_timer_ms 事件定时器，单位毫秒 (防止报文风暴)。
      * @return true 如果配置成功。
      */
-    bool startErrorFeedbackTPDO(huint16 pdo_index, huint8 transmit_type = 254, huint16 event_timer_ms = 10);    
+    bool startErrorFeedbackTPDO(huint16 pdo_index, huint8 transmit_type = 254, huint16 event_timer_ms = 10);
+
+    /**
+     * @brief 打印当前 TPDO 配置（通信参数 COB-ID/传输类型/事件定时器 与映射表），用于调试。
+     * 遍历 TPDO1-4，读取从站 0x1800+pdoIndex 与 0x1A00+pdoIndex 相关对象并打印到 stdout。
+     */
+    void printTpdoConfig();
 
     int getNodeId();
 

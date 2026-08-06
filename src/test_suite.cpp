@@ -130,6 +130,8 @@ void test_feedback_mode(EuMotorNode& motor) {
     // Use a shorter event timer for more frequent updates
     if (motor.startAutoFeedback(0, 255, 20)) {
         std::cout << "Automatic feedback started. Moving motor to 180 degrees..." << std::endl;
+        // Print the current TPDO configuration for debugging
+        motor.printTpdoConfig();
         //motor.enable(harmonic_OperateMode_ProfilePosition);
         //motor.moveTo(90.0f, 90, 500, 500);
 
@@ -187,6 +189,20 @@ void test_status_and_errors(EuMotorNode& motor) {
     try {
         harmonic_OperateMode mode = motor.getOperationMode();
         std::cout << "Current Operation Mode (from device): " << static_cast<int>(mode) << std::endl;
+
+        // --- 1. Gear Ratio (SDO 0x6091) ---
+        std::cout << "\n--- Gear Ratio (SDO 0x6091) ---" << std::endl;
+        try {
+            huint32 motor_rev = motor.read<huint32>(0x6091, 1);
+            huint32 shaft_rev = motor.read<huint32>(0x6091, 2);
+            std::cout << "Motor revolutions: " << motor_rev << std::endl;
+            std::cout << "Shaft revolutions: " << shaft_rev << std::endl;
+            if (shaft_rev != 0) {
+                std::cout << "Gear ratio (motor/shaft): " << motor_rev << "/" << shaft_rev << std::endl;
+            }
+        } catch (const std::runtime_error& e) {
+            std::cout << "Could not read gear ratio SDO: " << e.what() << std::endl;
+        }
 
         huint16 status = motor.getStatusWord();
         print_status_word(status);

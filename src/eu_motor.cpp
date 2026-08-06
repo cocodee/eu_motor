@@ -95,16 +95,23 @@ bool EuMotorNode::applyTorque(hint16 target_torque_milli, huint32 torque_slope) 
 
 EuMotorNode::EuMotorNode(huint8 devIndex, huint8 nodeId, huint32 default_timeout_ms)
     : dev_index_(devIndex), node_id_(nodeId), timeout_ms_(default_timeout_ms) {
-    // Read the gear ratio on construction
+    // Read the gear ratio on construction: pulses_per_rev = motor_rev / shaft_rev
     motor_id_ = {dev_index_, node_id_};
-    if (!check(harmonic_getGearRatioShaftRevolutions(dev_index_, node_id_, &pulses_per_rev_, timeout_ms_), "Read Initial Gear Ratio")) {
+    huint32 motor_rev = 0;
+    huint32 shaft_rev = 0;
+    bool gear_ok = check(harmonic_getGearRatioMotorRevolutions(dev_index_, node_id_, &motor_rev, timeout_ms_), "Read Motor Revolutions")
+                && check(harmonic_getGearRatioShaftRevolutions(dev_index_, node_id_, &shaft_rev, timeout_ms_), "Read Shaft Revolutions");
+    if (!gear_ok || shaft_rev == 0) {
         pulses_per_rev_ = 360000; // Fallback to a sensible default
         MotorFeedbackManager::getInstance().setGearRatio(motor_id_, pulses_per_rev_);
-        std::cerr << "WARNING [Motor " << (int)node_id_ << "]: Failed to read gear ratio. Using default " 
+        std::cerr << "WARNING [Motor " << (int)node_id_ << "]: Failed to read gear ratio. Using default "
                   << pulses_per_rev_ << ". Call setGearRatio() for accuracy." << std::endl;
     }else {
-         MotorFeedbackManager::getInstance().setGearRatio(motor_id_, pulses_per_rev_);
-        std::cout << "INFO [Motor] " << (int)node_id_ << "]: Gear ratio set to " << pulses_per_rev_ << "." << std::endl;
+        // pulses_per_rev_ = motor_revolutions / shaft_revolutions
+        pulses_per_rev_ = static_cast<huint32>((hreal32)motor_rev / (hreal32)shaft_rev);
+        MotorFeedbackManager::getInstance().setGearRatio(motor_id_, pulses_per_rev_);
+        std::cout << "INFO [Motor " << (int)node_id_ << "]: Gear ratio set to "
+                  << pulses_per_rev_ << " (pulses per rev)." << std::endl;
     }
     huint32 posWindow;
     harmonic_getPositionWindow(devIndex, nodeId, &posWindow);
@@ -715,6 +722,67 @@ bool EuMotorNode::startErrorFeedbackTPDO(huint16 pdo_index, huint8 transmit_type
 
     std::cout << "INFO [Motor " << (int)node_id_ << "]: Error feedback TPDO configured successfully." << std::endl;
     return true;
+}
+
+/**
+ * @brief 打印当前 TPDO 配置（COB-ID、传输类型、事件定时器等）与映射表，用于调试。
+ * 遍历 TPDO1-4，读取从站 0x1800+pdoIndex 与 0x1A00+pdoIndex 相关对象并打印到 stdout。
+ */
+void EuMotorNode::printTpdoConfig() {
+    std::cout << "=== TPDO Configuration for Motor " << (int)node_id_ << " ===" << std::endl;
+    for (huint16 pdo = 0; pdo < 4; ++pdo) {
+        std::cout << "--- TPDO" << (pdo + 1) << " (comm 0x18" << std::hex << std::uppercase << pdo
+                  << "00, map 0x1A" << pdo << "00)" << std::dec << std::nouppercase << " ---" << std::endl;
+
+        huint8 paras_count = 0;
+        if (check(harmonic_getTPDOMaxParasCount(dev_index_, node_id_, pdo, &paras_count, timeout_ms_), "TPDO Max Paras Count")) {
+            std::cout << "  Max Paras Count: " << (int)paras_count << std::endl;
+        }
+
+        huint32 cob_id = 0;
+        if (check(harmonic_getTPDOCobId(dev_index_, node_id_, pdo, &cob_id, timeout_ms_), "TPDO COB-ID")) {
+            bool valid = !(cob_id & 0x80000000);
+            std::cout << "  COB-ID: 0x" << std::hex << std::uppercase << (cob_id & 0x7FFFFFFF) << std::dec
+                      << std::nouppercase << " (" << (valid ? "valid" : "invalid/disabled") << ")" << std::endl;
+        }
+
+        huint8 transmit_type = 0;
+        if (check(harmonic_getTPDOTransmitType(dev_index_, node_id_, pdo, &transmit_type, timeout_ms_), "TPDO Transmit Type")) {
+            std::cout << "  Transmit Type: " << (int)transmit_type << std::endl;
+        }
+
+        huint16 inhibit_time = 0;
+        if (check(harmonic_getTPDOInhibitTime(dev_index_, node_id_, pdo, &inhibit_time, timeout_ms_), "TPDO Inhibit Time")) {
+            std::cout << "  Inhibit Time: " << inhibit_time << " (x100us)" << std::endl;
+        }
+
+        huint16 event_timer = 0;
+        if (check(harmonic_getTPDOEventTimer(dev_index_, node_id_, pdo, &event_timer, timeout_ms_), "TPDO Event Timer")) {
+            std::cout << "  Event Timer: " << event_timer << " ms" << std::endl;
+        }
+
+        huint8 sync_start = 0;
+        if (check(harmonic_getTPDOSYNCStartValue(dev_index_, node_id_, pdo, &sync_start, timeout_ms_), "TPDO SYNC Start")) {
+            std::cout << "  SYNC Start Value: " << (int)sync_start << std::endl;
+        }
+
+        huint8 map_count = 0;
+        if (check(harmonic_getTPDOMaxMappedCount(dev_index_, node_id_, pdo, &map_count, timeout_ms_), "TPDO Map Count")) {
+            std::cout << "  Mapped Objects: " << (int)map_count << std::endl;
+            for (huint8 i = 0; i < map_count; ++i) {
+                huint32 mapping = 0;
+                if (check(harmonic_getTPDOMapped(dev_index_, node_id_, pdo, i, &mapping, timeout_ms_), "TPDO Map Entry")) {
+                    huint16 obj_index = static_cast<huint16>(mapping >> 16);
+                    huint8  obj_sub   = static_cast<huint8>((mapping >> 8) & 0xFF);
+                    huint8  obj_len   = static_cast<huint8>(mapping & 0xFF);
+                    std::cout << "    [" << (int)i << "] 0x" << std::hex << std::uppercase << obj_index
+                              << std::dec << std::nouppercase
+                              << " sub " << (int)obj_sub << ", " << (int)obj_len << " bits" << std::endl;
+                }
+            }
+        }
+    }
+    std::cout << "=== End TPDO Configuration ===" << std::endl;
 }
 
 
