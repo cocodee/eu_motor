@@ -44,6 +44,39 @@ void signal_handler(int signal)
 int main(int argc, char **argv)
 {
     signal(SIGINT, signal_handler);
+
+    // --- 1. 参数检查 ---
+    // 检查是否提供了足够的参数。程序名本身是第一个参数，所以我们需要 argc == 3。
+    if (argc != 3)
+    {
+        // 如果参数不正确，打印用法提示并退出
+        std::cerr << "Usage: " << argv[0] << " <dev_index> <node_id>" << std::endl;
+        std::cerr << "Example: " << argv[0] << " 0 21" << std::endl;
+        return 1; // 返回非零值表示错误
+    }
+
+    int id;
+    // --- 2. 解析参数 ---
+    try
+    {
+        // 使用 std::stoi 将字符串参数 (argv[1], argv[2]) 转换为整数
+        devIndex = std::stoi(argv[1]);
+        id = std::stoi(argv[2]);
+    }
+    catch (const std::invalid_argument& e)
+    {
+        std::cerr << "[Error] Invalid argument. Please provide valid numbers." << std::endl;
+        return 1;
+    }
+    catch (const std::out_of_range& e)
+    {
+        std::cerr << "[Error] Argument is out of range for an integer." << std::endl;
+        return 1;
+    }
+
+    std::cout << "Opening device index: " << devIndex << std::endl;
+    std::cout << "Attempting to query node with ID: " << id << std::endl;
+
     if (HARMONIC_SUCCESS != harmonic_initDLL(harmonic_DeviceType_Canable, devIndex, harmonic_Baudrate_1000))
     {
         std::cout << "[error]test open failed!" << std::endl;
@@ -53,36 +86,6 @@ int main(int argc, char **argv)
 
     // harmonic_setSendDataCallBack(sendCallback);
     // harmonic_setReceiveDataCallBack(receiveCallback);
-
-    // --- 1. 参数检查 ---
-    // 检查是否提供了足够的参数。程序名本身是第一个参数，所以我们需要 argc == 2。
-    if (argc != 2)
-    {
-        // 如果参数不正确，打印用法提示并退出
-        std::cerr << "Usage: " << argv[0] << " <node_id>" << std::endl;
-        std::cerr << "Example: " << argv[0] << " 21" << std::endl;
-        return 1; // 返回非零值表示错误
-    }
-
-    int id;
-    // --- 2. 解析参数 ---
-    try
-    {
-        // 使用 std::stoi 将字符串参数 (argv[1]) 转换为整数
-        id = std::stoi(argv[1]);
-    }
-    catch (const std::invalid_argument& e)
-    {
-        std::cerr << "[Error] Invalid node ID. Please provide a valid number." << std::endl;
-        return 1;
-    }
-    catch (const std::out_of_range& e)
-    {
-        std::cerr << "[Error] Node ID is out of range for an integer." << std::endl;
-        return 1;
-    }
-
-    std::cout << "Attempting to query node with ID: " << id << std::endl;
 
     harmonic_NodeState state;
     if (HARMONIC_SUCCESS != harmonic_getNodeState(devIndex, id, &state))
