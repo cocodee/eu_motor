@@ -85,6 +85,9 @@ void test_csp_mode(EuMotorNode& motor) {
             if(result != HARMONIC_SUCCESS){
                 break;
             }
+            if (i % 100 == 0) {
+                std::cout << "  [Position check] i=" << i << " Motor position: " << motor.getPosition() << " degrees" << std::endl;
+            }
             std::this_thread::sleep_for(std::chrono::milliseconds(20));
         }
     } else {
@@ -265,6 +268,15 @@ void test_status_and_errors(EuMotorNode& motor) {
 
         huint16 error_code = motor.getErrorCode();
         std::cout << "Current Error Code: 0x" << std::hex << std::setw(4) << std::setfill('0') << error_code << std::dec << std::endl;
+
+        // --- Motor Position (SDO read) ---
+        std::cout << "\n--- Motor Position (SDO read) ---" << std::endl;
+        try {
+            hreal32 position = motor.getPosition();
+            std::cout << "Current Position: " << position << " degrees" << std::endl;
+        } catch (const std::runtime_error& e) {
+            std::cout << "Could not read motor position: " << e.what() << std::endl;
+        }
 
         // --- 2. Reading Error History from SDO ---
         std::cout << "\n--- 2. Reading Error History (SDO 0x1003) ---" << std::endl;
