@@ -261,12 +261,6 @@ void run_feedback_sync_test(EuMotorNode& motor, huint8 rpdo_transmit_type, const
 
     // 6. 主循环：固定 10ms SYNC；RPDO 仅在指令点按需投递（不带 SYNC）。
     for (int i = 0; i < 420; ++i) { // 4.2s @ 10ms（前 1s 只发 SYNC 建立网格，之后才下 RPDO 指令）
-        // 网格建立后先发一帧“原位”RPDO（target=P0，不会动）：吸收固件可能丢弃“第一条非周期 RPDO”的情况。
-        if (sync_count == 50) {
-            motor.sendCspTargetPosition(p0, 0, /*isSync=*/false);
-            std::cout << "[t=" << sync_count * sync_period_ms << "ms] >> warm-up RPDO (target=P0, no-op)"
-                      << std::endl;
-        }
         if (cmd_idx < kCmds && sync_count == cmd_at_sync[cmd_idx]) {
             // 先校验上一条指令是否到位（end-to-end RPDO 验证）+ 诊断：SDO 读回目标/实际位置
             if (cmd_idx > 0) {
@@ -401,12 +395,6 @@ void test_feedback_sync_cyclic(EuMotorNode& motor) {
 
     // 5. 主循环：固定 10ms SYNC；RPDO 仅在指令点按需投递（不带 SYNC）。
     for (int i = 0; i < 420; ++i) { // 4.2s @ 10ms（前 1s 只发 SYNC 建立网格，之后才下 RPDO 指令）
-        // 网格建立后先发一帧“原位”RPDO（target=P0，不会动）：与 Type 0 测试保持一致，吸收首条同步 RPDO 可能丢失的情况。
-        if (sync_count == 50) {
-            motor.sendCspTargetPosition(p0, 0, /*isSync=*/false);
-            std::cout << "[t=" << sync_count * sync_period_ms << "ms] >> warm-up RPDO (target=P0, no-op)"
-                      << std::endl;
-        }
         if (cmd_idx < kCmds && sync_count == cmd_at_sync[cmd_idx]) {
             // 先校验上一条指令是否到位（end-to-end RPDO 验证）+ 诊断：SDO 读回目标/实际位置
             if (cmd_idx > 0) {
