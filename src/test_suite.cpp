@@ -255,7 +255,7 @@ void test_feedback_sync_mode(EuMotorNode& motor) {
     const int    kCmds = 3;
     const hreal32 step = 5.0f;
     const hreal32 targets_deg[kCmds] = { p0 + step, p0 - step, p0 }; // +5°, -5°, 回原位
-    const int    cmd_at_sync[kCmds] = { 0, 100, 200 };               // t = 0 / 1s / 2s
+    const int    cmd_at_sync[kCmds] = { 100, 200, 300 };             // 先发 1s 纯 SYNC 建立网格，再按需下指令（t = 1s / 2s / 3s）
     const float  tol_deg = 2.0f;
     int cmd_idx = 0, sync_count = 0, rpdo_count = 0;
     bool first_fb = true;
@@ -265,7 +265,13 @@ void test_feedback_sync_mode(EuMotorNode& motor) {
     int gap_n = 0;
 
     // 7. 主循环：固定 10ms SYNC；RPDO 仅在指令点按需投递（不带 SYNC）。
-    for (int i = 0; i < 320; ++i) { // 3.2s @ 10ms
+    for (int i = 0; i < 420; ++i) { // 4.2s @ 10ms（前 1s 只发 SYNC 建立网格，之后才下 RPDO 指令）
+        // 网格建立后先发一帧“原位”RPDO（target=P0，不会动）：吸收固件可能丢弃“第一条非周期 RPDO”的情况。
+        if (sync_count == 50) {
+            motor.sendCspTargetPosition(p0, 0, /*isSync=*/false);
+            std::cout << "[t=" << sync_count * sync_period_ms << "ms] >> warm-up RPDO (target=P0, no-op)"
+                      << std::endl;
+        }
         if (cmd_idx < kCmds && sync_count == cmd_at_sync[cmd_idx]) {
             // 先校验上一条指令是否到位（end-to-end RPDO 验证）+ 诊断：SDO 读回目标/实际位置
             if (cmd_idx > 0) {
