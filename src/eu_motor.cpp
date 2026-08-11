@@ -915,7 +915,7 @@ void MotorFeedbackManager::canRecvCallback(int devIndex, const harmonic_CanMsg* 
     //              << (int)frame->data[i] << std::setfill(' ');
     //    if (i + 1 < frame->len) std::cout << " ";
     //}
-    std::cout << std::dec << std::nouppercase << std::endl;
+    //std::cout << std::dec << std::nouppercase << std::endl;
 
     huint32 function_code = frame->cob_id & 0xFF80;
     huint8 node_id = frame->cob_id & 0x007F;
