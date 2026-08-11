@@ -907,9 +907,9 @@ void MotorFeedbackManager::canRecvCallback(int devIndex, const harmonic_CanMsg* 
     MotorFeedbackManager& instance = getInstance();
 
     // === DEBUG: dump the raw CAN frame ===
-    std::cout << "DBG [CAN] dev=" << (int)devIndex
-              << " cob_id=0x" << std::hex << std::uppercase << frame->cob_id
-              << " len=" << std::dec << (int)frame->len << " data=";
+    //std::cout << "DBG [CAN] dev=" << (int)devIndex
+    //          << " cob_id=0x" << std::hex << std::uppercase << frame->cob_id
+    //          << " len=" << std::dec << (int)frame->len << " data=";
     for (huint8 i = 0; i < frame->len; ++i) {
         std::cout << std::hex << std::uppercase << std::setw(2) << std::setfill('0')
                   << (int)frame->data[i] << std::setfill(' ');
