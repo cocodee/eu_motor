@@ -190,10 +190,22 @@ void test_feedback_sync_mode(EuMotorNode& motor) {
         std::cerr << "Failed to configure CSP mode." << std::endl;
         return;
     }
+    // [诊断] configureCspMode 内部会 enableStateMachine，此处应已 OpEnabled。
+    {
+        huint16 sw = motor.getStatusWord();
+        std::cout << "[diag] statusword after configureCspMode: 0x" << std::hex << sw << std::dec
+                  << (sw & 0x0004 ? " (OpEnabled)" : " (NOT OpEnabled)") << std::endl;
+    }
     // 2. TPDO 反馈 Transmission Type = 1（同步周期）-> 每个 SYNC 上报一次。
     if (!motor.startAutoFeedback(0, 1, 0)) {
         std::cerr << "Failed to start sync feedback (TPDO type 1)." << std::endl;
         return;
+    }
+    // [诊断] startAutoFeedback 走了 PreOp->Start NMT，402 状态可能被复位（不再 OpEnabled）。
+    {
+        huint16 sw = motor.getStatusWord();
+        std::cout << "[diag] statusword after startAutoFeedback: 0x" << std::hex << sw << std::dec
+                  << (sw & 0x0004 ? " (OpEnabled)" : " (NOT OpEnabled)") << std::endl;
     }
     // 3. RPDO1 Transmission Type = 0（非周期同步）：从站缓存，下一个 SYNC 才生效。
     //    对象 0x1400 sub2 = RPDO1 通信参数-传输类型。必须在 configureCspMode 的 Reset-Node 之后写。
@@ -202,12 +214,21 @@ void test_feedback_sync_mode(EuMotorNode& motor) {
         return;
     }
     // 4. 重新使能 CiA 402（startAutoFeedback 会走 PreOp->Start NMT，可能使 402 回到 Shutdown）。
-    motor.write<huint16>(0x6040, 0, 0x06); // Shutdown -> ReadyToSwitchOn
+    bool ok06 = motor.write<huint16>(0x6040, 0, 0x06); // Shutdown -> ReadyToSwitchOn
+    std::cout << "[diag] 0x6040=0x06 (Shutdown) write " << (ok06 ? "ok" : "FAIL") << std::endl;
     std::this_thread::sleep_for(std::chrono::milliseconds(50));
-    motor.write<huint16>(0x6040, 0, 0x07); // Switch On -> SwitchedOn
+    bool ok07 = motor.write<huint16>(0x6040, 0, 0x07); // Switch On -> SwitchedOn
+    std::cout << "[diag] 0x6040=0x07 (SwitchOn) write " << (ok07 ? "ok" : "FAIL") << std::endl;
     std::this_thread::sleep_for(std::chrono::milliseconds(50));
-    motor.write<huint16>(0x6040, 0, 0x0F); // Enable Operation
+    bool ok0F = motor.write<huint16>(0x6040, 0, 0x0F); // Enable Operation
+    std::cout << "[diag] 0x6040=0x0F (EnableOp) write " << (ok0F ? "ok" : "FAIL") << std::endl;
     std::this_thread::sleep_for(std::chrono::milliseconds(50));
+    // [诊断] 确认 402 是否真正进入 Operation Enabled。
+    {
+        huint16 sw = motor.getStatusWord();
+        std::cout << "[diag] statusword after re-enable: 0x" << std::hex << sw << std::dec
+                  << (sw & 0x0004 ? " (OpEnabled)" : " (NOT OpEnabled)") << std::endl;
+    }
 
     // 5. 配置读回校验
     std::cout << "RPDO1 transmit type = " << (int)motor.read<huint8>(0x1400, 2)
@@ -236,14 +257,25 @@ void test_feedback_sync_mode(EuMotorNode& motor) {
     // 7. 主循环：固定 10ms SYNC；RPDO 仅在指令点按需投递（不带 SYNC）。
     for (int i = 0; i < 320; ++i) { // 3.2s @ 10ms
         if (cmd_idx < kCmds && sync_count == cmd_at_sync[cmd_idx]) {
-            // 先校验上一条指令是否到位（end-to-end RPDO 验证）
+            // 先校验上一条指令是否到位（end-to-end RPDO 验证）+ 诊断：SDO 读回目标/实际位置
             if (cmd_idx > 0) {
                 float err = std::fabs(fb.position_deg - targets_deg[cmd_idx - 1]);
                 std::cout << (err <= tol_deg ? "  [PASS]" : "  [FAIL]")
                           << " cmd#" << cmd_idx
                           << " target=" << targets_deg[cmd_idx - 1]
-                          << " deg, pos=" << fb.position_deg
-                          << " deg (err=" << err << ")" << std::endl;
+                          << " deg, TPDO pos=" << fb.position_deg << " deg"
+                          << ", sw=0x" << std::hex << fb.status_word << std::dec
+                          << (fb.status_word & 0x0004 ? " (OpEnabled)" : " (NOT OpEnabled)");
+                // [诊断] 0x607A=目标位置(脉冲) 0x6064=实际位置(脉冲)：判断 RPDO 是否到达/被应用
+                try {
+                    hint32 tgt_pulses = motor.read<hint32>(0x607A, 0);
+                    hint32 act_pulses = motor.read<hint32>(0x6064, 0);
+                    std::cout << ", SDO 0x607A=" << tgt_pulses
+                              << ", SDO 0x6064=" << act_pulses << " pulses";
+                } catch (const std::runtime_error& e) {
+                    std::cout << ", SDO read failed: " << e.what();
+                }
+                std::cout << " (err=" << err << ")" << std::endl;
             }
             motor.sendCspTargetPosition(targets_deg[cmd_idx], 0, /*isSync=*/false); // 按需 RPDO
             std::cout << "[t=" << sync_count * sync_period_ms << "ms] >> on-demand RPDO -> target="
@@ -268,9 +300,11 @@ void test_feedback_sync_mode(EuMotorNode& motor) {
             first_fb = false;
             prev_update = fb.last_update_time;
         }
-        if (sync_count % 25 == 0) { // 每 250ms 打印位置/sync/rpdo
+        if (sync_count % 25 == 0) { // 每 250ms 打印位置/sync/rpdo + 实时状态字
             std::cout << "[t=" << sync_count * sync_period_ms << "ms] Pos=" << fb.position_deg
-                      << " deg, syncs=" << sync_count
+                      << " deg, sw=0x" << std::hex << fb.status_word << std::dec
+                      << (fb.status_word & 0x0004 ? " (OpEnabled)" : " (NOT OpEnabled)")
+                      << ", syncs=" << sync_count
                       << ", rpdos=" << rpdo_count << std::endl;
         }
         std::this_thread::sleep_for(std::chrono::milliseconds(sync_period_ms));
