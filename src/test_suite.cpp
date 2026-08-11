@@ -173,6 +173,121 @@ void test_feedback_mode(EuMotorNode& motor) {
     }
 }
 
+// 主站固定 SYNC 周期 + RPDO "异步发送 + 同步生效（Type 0）" 测试。
+// - 主站维持固定 10ms SYNC 周期（主循环内每周期 sendSync）。
+// - TPDO Transmission Type = 1（同步周期）：每个 SYNC 上报一次反馈。
+// - RPDO Transmission Type = 0（非周期同步）：仅在按需指令点投递一帧 RPDO（不带 SYNC），
+//   从站缓存该 RPDO，下一个固定 SYNC 到达时才刷入驱动层生效。
+// - 关节运动安全：测试前读取位置 P0，测试期间只偏移 ±5°，结束后回到 P0。
+void test_feedback_sync_mode(EuMotorNode& motor) {
+    print_header("Feedback Sync Mode (SYNC 10ms | RPDO Type0 on-demand | TPDO Type1 periodic)");
+
+    MotorFeedbackManager& fb_mgr = MotorFeedbackManager::getInstance();
+    fb_mgr.registerCallback();
+
+    // 1. RPDO -> 0x607A 目标位置。use_sync=false: RPDO 发送与 SYNC 解耦（按需投递）。
+    if (!motor.configureCspMode(0, false)) {
+        std::cerr << "Failed to configure CSP mode." << std::endl;
+        return;
+    }
+    // 2. TPDO 反馈 Transmission Type = 1（同步周期）-> 每个 SYNC 上报一次。
+    if (!motor.startAutoFeedback(0, 1, 0)) {
+        std::cerr << "Failed to start sync feedback (TPDO type 1)." << std::endl;
+        return;
+    }
+    // 3. RPDO1 Transmission Type = 0（非周期同步）：从站缓存，下一个 SYNC 才生效。
+    //    对象 0x1400 sub2 = RPDO1 通信参数-传输类型。必须在 configureCspMode 的 Reset-Node 之后写。
+    if (!motor.write<huint8>(0x1400, 2, 0)) {
+        std::cerr << "Failed to set RPDO1 transmit type to 0." << std::endl;
+        return;
+    }
+    // 4. 重新使能 CiA 402（startAutoFeedback 会走 PreOp->Start NMT，可能使 402 回到 Shutdown）。
+    motor.write<huint16>(0x6040, 0, 0x06); // Shutdown -> ReadyToSwitchOn
+    std::this_thread::sleep_for(std::chrono::milliseconds(50));
+    motor.write<huint16>(0x6040, 0, 0x07); // Switch On -> SwitchedOn
+    std::this_thread::sleep_for(std::chrono::milliseconds(50));
+    motor.write<huint16>(0x6040, 0, 0x0F); // Enable Operation
+    std::this_thread::sleep_for(std::chrono::milliseconds(50));
+
+    // 5. 配置读回校验
+    std::cout << "RPDO1 transmit type = " << (int)motor.read<huint8>(0x1400, 2)
+              << " (expect 0 = acyclic synchronous)" << std::endl;
+    std::cout << "TPDO1 transmit type = " << (int)motor.read<huint8>(0x1800, 2)
+              << " (expect 1 = synchronous periodic)" << std::endl;
+    motor.printTpdoConfig();
+
+    // 6. 测试前读取关节位置 P0（电机静止），测试期间只偏移 ±5°，结束后回到 P0。
+    const hreal32 p0 = motor.getPosition();
+    std::cout << "Pre-test joint position P0 = " << p0 << " deg" << std::endl;
+
+    const int    sync_period_ms = 10;
+    const int    kCmds = 3;
+    const hreal32 step = 5.0f;
+    const hreal32 targets_deg[kCmds] = { p0 + step, p0 - step, p0 }; // +5°, -5°, 回原位
+    const int    cmd_at_sync[kCmds] = { 0, 100, 200 };               // t = 0 / 1s / 2s
+    const float  tol_deg = 2.0f;
+    int cmd_idx = 0, sync_count = 0, rpdo_count = 0;
+    bool first_fb = true;
+    MotorFeedbackData fb = motor.getLatestFeedback();
+    auto prev_update = fb.last_update_time;
+    huint32 gap_sum_ms = 0, gap_max_ms = 0;
+    int gap_n = 0;
+
+    // 7. 主循环：固定 10ms SYNC；RPDO 仅在指令点按需投递（不带 SYNC）。
+    for (int i = 0; i < 320; ++i) { // 3.2s @ 10ms
+        if (cmd_idx < kCmds && sync_count == cmd_at_sync[cmd_idx]) {
+            // 先校验上一条指令是否到位（end-to-end RPDO 验证）
+            if (cmd_idx > 0) {
+                float err = std::fabs(fb.position_deg - targets_deg[cmd_idx - 1]);
+                std::cout << (err <= tol_deg ? "  [PASS]" : "  [FAIL]")
+                          << " cmd#" << cmd_idx
+                          << " target=" << targets_deg[cmd_idx - 1]
+                          << " deg, pos=" << fb.position_deg
+                          << " deg (err=" << err << ")" << std::endl;
+            }
+            motor.sendCspTargetPosition(targets_deg[cmd_idx], 0, /*isSync=*/false); // 按需 RPDO
+            std::cout << "[t=" << sync_count * sync_period_ms << "ms] >> on-demand RPDO -> target="
+                      << targets_deg[cmd_idx] << " deg" << std::endl;
+            ++rpdo_count;
+            ++cmd_idx;
+        }
+        motor.sendSync(); // 固定周期 SYNC（同步生效的提交信号）
+        ++sync_count;
+
+        fb = motor.getLatestFeedback();
+        if (fb.last_update_time != prev_update) { // TPDO 到达间隔统计（应 ≈ 10ms）
+            if (!first_fb) {
+                huint32 gap = (huint32)std::chrono::duration_cast<std::chrono::milliseconds>(
+                    fb.last_update_time - prev_update).count();
+                if (gap > 0 && gap < 100) {
+                    gap_sum_ms += gap;
+                    ++gap_n;
+                    if (gap > gap_max_ms) gap_max_ms = gap;
+                }
+            }
+            first_fb = false;
+            prev_update = fb.last_update_time;
+        }
+        if (sync_count % 25 == 0) { // 每 250ms 打印位置/sync/rpdo
+            std::cout << "[t=" << sync_count * sync_period_ms << "ms] Pos=" << fb.position_deg
+                      << " deg, syncs=" << sync_count
+                      << ", rpdos=" << rpdo_count << std::endl;
+        }
+        std::this_thread::sleep_for(std::chrono::milliseconds(sync_period_ms));
+    }
+
+    // 8. 收尾：回到测试前角度 P0（最后一条指令目标即 P0）
+    if (cmd_idx == kCmds) {
+        float err_home = std::fabs(fb.position_deg - p0);
+        std::cout << (err_home <= tol_deg ? "  [PASS]" : "  [FAIL]")
+                  << " return-home P0=" << p0 << " deg, pos=" << fb.position_deg
+                  << " deg (err=" << err_home << ")" << std::endl;
+    }
+    std::cout << "\nSummary: syncs=" << sync_count << ", on-demand RPDOs=" << rpdo_count
+              << " (RPDO only at command times), avg TPDO gap=" << (gap_n ? gap_sum_ms / gap_n : 0)
+              << "ms max=" << gap_max_ms << "ms (expect ~10ms)" << std::endl;
+}
+
 
 // +++ NEW TEST CASE +++
 // Helper function to decode and print the CiA 402 Statusword
@@ -375,6 +490,7 @@ int main(int argc, char* argv[]) {
     test_suite["cst"] = test_cst_mode;
     test_suite["ip"] = test_ip_mode;
     test_suite["feedback"] = test_feedback_mode;
+    test_suite["feedback_sync"] = test_feedback_sync_mode;
     test_suite["status"] = test_status_and_errors;
     test_suite["clearfault"] = test_clear_fault;
 
