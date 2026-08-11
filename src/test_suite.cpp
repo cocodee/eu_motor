@@ -213,22 +213,32 @@ void test_feedback_sync_mode(EuMotorNode& motor) {
         std::cerr << "Failed to set RPDO1 transmit type to 0." << std::endl;
         return;
     }
-    // 4. 重新使能 CiA 402（startAutoFeedback 会走 PreOp->Start NMT，可能使 402 回到 Shutdown）。
-    bool ok06 = motor.write<huint16>(0x6040, 0, 0x06); // Shutdown -> ReadyToSwitchOn
-    std::cout << "[diag] 0x6040=0x06 (Shutdown) write " << (ok06 ? "ok" : "FAIL") << std::endl;
-    std::this_thread::sleep_for(std::chrono::milliseconds(50));
-    bool ok07 = motor.write<huint16>(0x6040, 0, 0x07); // Switch On -> SwitchedOn
-    std::cout << "[diag] 0x6040=0x07 (SwitchOn) write " << (ok07 ? "ok" : "FAIL") << std::endl;
-    std::this_thread::sleep_for(std::chrono::milliseconds(50));
-    bool ok0F = motor.write<huint16>(0x6040, 0, 0x0F); // Enable Operation
-    std::cout << "[diag] 0x6040=0x0F (EnableOp) write " << (ok0F ? "ok" : "FAIL") << std::endl;
-    std::this_thread::sleep_for(std::chrono::milliseconds(50));
-    // [诊断] 确认 402 是否真正进入 Operation Enabled。
-    {
-        huint16 sw = motor.getStatusWord();
-        std::cout << "[diag] statusword after re-enable: 0x" << std::hex << sw << std::dec
-                  << (sw & 0x0004 ? " (OpEnabled)" : " (NOT OpEnabled)") << std::endl;
+    // 4. 重新使能 CiA 402：状态感知，只前进不降级。
+    //    诊断发现：startAutoFeedback 的 PreOp->Start NMT 后驱动处于 0x1333（低 8 位与可动的 0x333 相同，
+    //    即已 SwitchedOn）。若盲目写 0x06(Shutdown) 会把状态降到 0x331(ReadyToSwitchOn)，反而动不了。
+    //    因此先读状态字：已 SwitchedOn(bit1) 就直接 0x0F 升到 Operation Enabled；否则才走完整 0x06→0x07→0x0F。
+    auto advance_cw = [&](huint16 cw, const char* tag) -> huint16 {
+        bool ok = motor.write<huint16>(0x6040, 0, cw);
+        std::this_thread::sleep_for(std::chrono::milliseconds(50));
+        huint16 s2 = motor.getStatusWord();
+        std::cout << "[diag] 0x6040=0x" << std::hex << cw << std::dec
+                  << " (" << tag << ") write " << (ok ? "ok" : "FAIL")
+                  << " -> sw=0x" << std::hex << s2 << std::dec
+                  << (s2 & 0x0004 ? " (OpEnabled)" : " (NOT OpEnabled)") << std::endl;
+        return s2;
+    };
+    huint16 sw_en = motor.getStatusWord();
+    if (!(sw_en & 0x0004)) {
+        if (sw_en & 0x0002) {          // 已 SwitchedOn -> 直接 Enable Operation（不降级）
+            sw_en = advance_cw(0x0F, "EnableOp");
+        } else {                        // 低于 SwitchedOn -> 完整序列
+            sw_en = advance_cw(0x06, "Shutdown");
+            sw_en = advance_cw(0x07, "SwitchOn");
+            sw_en = advance_cw(0x0F, "EnableOp");
+        }
     }
+    std::cout << "[diag] final statusword after state-aware enable: 0x" << std::hex << sw_en << std::dec
+              << (sw_en & 0x0004 ? " (OpEnabled)" : " (NOT OpEnabled)") << std::endl;
 
     // 5. 配置读回校验
     std::cout << "RPDO1 transmit type = " << (int)motor.read<huint8>(0x1400, 2)
