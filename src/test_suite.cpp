@@ -198,62 +198,42 @@ void run_feedback_sync_test(EuMotorNode& motor, huint8 rpdo_transmit_type, const
     MotorFeedbackManager& fb_mgr = MotorFeedbackManager::getInstance();
     fb_mgr.registerCallback();
 
-    // 1. RPDO -> 0x607A 目标位置。use_sync=false: RPDO 发送与 SYNC 解耦（按需投递）。
-    if (!motor.configureCspMode(0, false)) {
-        std::cerr << "Failed to configure CSP mode." << std::endl;
-        return;
-    }
-    // [诊断] configureCspMode 内部会 enableStateMachine，此处应已 OpEnabled。
-    {
-        huint16 sw = motor.getStatusWord();
-        std::cout << "[diag] statusword after configureCspMode: 0x" << std::hex << sw << std::dec
-                  << (sw & 0x0004 ? " (OpEnabled)" : " (NOT OpEnabled)") << std::endl;
-    }
-    // 2. TPDO 反馈 Transmission Type = 1（同步周期）-> 每个 SYNC 上报一次。
+    // 1. 先启动 TPDO 反馈（Type 1 同步周期）。startAutoFeedback 会走 PreOp->Start NMT。
     if (!motor.startAutoFeedback(0, 1, 0)) {
         std::cerr << "Failed to start sync feedback (TPDO type 1)." << std::endl;
         return;
     }
-    // [诊断] startAutoFeedback 走了 PreOp->Start NMT，402 状态可能被复位（不再 OpEnabled）。
+    // [诊断] startAutoFeedback 走 PreOp->Start NMT，402 状态可能被复位。
     {
         huint16 sw = motor.getStatusWord();
         std::cout << "[diag] statusword after startAutoFeedback: 0x" << std::hex << sw << std::dec
                   << (sw & 0x0004 ? " (OpEnabled)" : " (NOT OpEnabled)") << std::endl;
     }
-    // 3. RPDO1 Transmission Type（0x1400 sub2）：0 = 非周期同步，1 = 同步周期。
+
+    // 2. 再配置 CSP（按 csp configure 的方式使能，不再用 advance_cw）：
+    //    configureCspMode 内部 Reset-Node -> Start -> enableStateMachine(0x06/0x07/0x0F)，
+    //    使能成为最后一步。这里用 use_sync=false 让 RPDO 先为 Type=0xFF，随后在步骤 3 覆盖为 rpdo_transmit_type。
+    if (!motor.configureCspMode(0, false)) {
+        std::cerr << "Failed to configure CSP mode." << std::endl;
+        return;
+    }
+    // [诊断] configureCspMode 末尾 enableStateMachine，此处应已可动。
+    {
+        huint16 sw = motor.getStatusWord();
+        std::cout << "[diag] statusword after configureCspMode: 0x" << std::hex << sw << std::dec
+                  << (sw & 0x0004 ? " (OpEnabled)" : " (NOT OpEnabled)") << std::endl;
+    }
+
+    // 3. 覆盖 RPDO1 Transmission Type（0x1400 sub2）：0 = 非周期同步，1 = 同步周期。
     //    必须在 configureCspMode 的 Reset-Node 之后写，否则会被复位清掉。
     if (!motor.write<huint8>(0x1400, 2, rpdo_transmit_type)) {
         std::cerr << "Failed to set RPDO1 transmit type to " << (int)rpdo_transmit_type << "." << std::endl;
         return;
     }
-    // 4. 重新使能 CiA 402：状态感知，只前进不降级。
-    //    诊断发现：startAutoFeedback 的 PreOp->Start NMT 后驱动处于 0x1333（低 8 位与可动的 0x333 相同，
-    //    即已 SwitchedOn）。若盲目写 0x06(Shutdown) 会把状态降到 0x331(ReadyToSwitchOn)，反而动不了。
-    //    因此先读状态字：已 SwitchedOn(bit1) 就直接 0x0F 升到 Operation Enabled；否则才走完整 0x06→0x07→0x0F。
-    auto advance_cw = [&](huint16 cw, const char* tag) -> huint16 {
-        bool ok = motor.write<huint16>(0x6040, 0, cw);
-        std::this_thread::sleep_for(std::chrono::milliseconds(50));
-        huint16 s2 = motor.getStatusWord();
-        std::cout << "[diag] 0x6040=0x" << std::hex << cw << std::dec
-                  << " (" << tag << ") write " << (ok ? "ok" : "FAIL")
-                  << " -> sw=0x" << std::hex << s2 << std::dec
-                  << (s2 & 0x0004 ? " (OpEnabled)" : " (NOT OpEnabled)") << std::endl;
-        return s2;
-    };
-    huint16 sw_en = motor.getStatusWord();
-    if (!(sw_en & 0x0004)) {
-        if (sw_en & 0x0002) {          // 已 SwitchedOn -> 直接 Enable Operation（不降级）
-            sw_en = advance_cw(0x0F, "EnableOp");
-        } else {                        // 低于 SwitchedOn -> 完整序列
-            sw_en = advance_cw(0x06, "Shutdown");
-            sw_en = advance_cw(0x07, "SwitchOn");
-            sw_en = advance_cw(0x0F, "EnableOp");
-        }
-    }
-    std::cout << "[diag] final statusword after state-aware enable: 0x" << std::hex << sw_en << std::dec
-              << (sw_en & 0x0004 ? " (OpEnabled)" : " (NOT OpEnabled)") << std::endl;
 
-    // 5. 配置读回校验
+    // 4. 配置读回校验
+    //    注意：configureCspMode 的 Reset-Node 在 startAutoFeedback 之后，可能把 TPDO 配置清回默认；
+    //    若下面 TPDO1 类型不是 1，说明被清，需要在 configureCspMode 之后重新配置 TPDO。
     std::cout << "RPDO1 transmit type = " << (int)motor.read<huint8>(0x1400, 2)
               << " (expect " << (int)rpdo_transmit_type
               << (rpdo_transmit_type == 0 ? " = acyclic synchronous" : " = synchronous cyclic") << ")"
@@ -262,7 +242,7 @@ void run_feedback_sync_test(EuMotorNode& motor, huint8 rpdo_transmit_type, const
               << " (expect 1 = synchronous periodic)" << std::endl;
     motor.printTpdoConfig();
 
-    // 6. 测试前读取关节位置 P0（电机静止），测试期间只偏移 ±5°，结束后回到 P0。
+    // 5. 测试前读取关节位置 P0（电机静止），测试期间只偏移 ±5°，结束后回到 P0。
     const hreal32 p0 = motor.getPosition();
     std::cout << "Pre-test joint position P0 = " << p0 << " deg" << std::endl;
 
@@ -279,7 +259,7 @@ void run_feedback_sync_test(EuMotorNode& motor, huint8 rpdo_transmit_type, const
     huint32 gap_sum_ms = 0, gap_max_ms = 0;
     int gap_n = 0;
 
-    // 7. 主循环：固定 10ms SYNC；RPDO 仅在指令点按需投递（不带 SYNC）。
+    // 6. 主循环：固定 10ms SYNC；RPDO 仅在指令点按需投递（不带 SYNC）。
     for (int i = 0; i < 420; ++i) { // 4.2s @ 10ms（前 1s 只发 SYNC 建立网格，之后才下 RPDO 指令）
         // 网格建立后先发一帧“原位”RPDO（target=P0，不会动）：吸收固件可能丢弃“第一条非周期 RPDO”的情况。
         if (sync_count == 50) {
@@ -341,7 +321,7 @@ void run_feedback_sync_test(EuMotorNode& motor, huint8 rpdo_transmit_type, const
         std::this_thread::sleep_for(std::chrono::milliseconds(sync_period_ms));
     }
 
-    // 8. 收尾：回到测试前角度 P0（最后一条指令目标即 P0）
+    // 7. 收尾：回到测试前角度 P0（最后一条指令目标即 P0）
     if (cmd_idx == kCmds) {
         float err_home = std::fabs(fb.position_deg - p0);
         std::cout << (err_home <= tol_deg ? "  [PASS]" : "  [FAIL]")
