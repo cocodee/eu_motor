@@ -531,7 +531,9 @@ void test_feedback_sync_thread(EuMotorNode& motor) {
     const int    kCmds = 3;
     const hreal32 step = 5.0f;
     const hreal32 targets_deg[kCmds] = { p0 + step, p0 - step, p0 }; // +5°, -5°, 回原位
-    const int    cmd_at_i[kCmds] = { 0, 100, 200 };                  // t=0 / 1s / 2s（无预热，直接下指令）
+    // 注意：驱动只在 Operational 后才会把 SYNC 计入网格，所以线程虽提前启动，t=0 时网格仍不够成熟（首条不锁存）。
+    // 这里把第一条指令放到 t=1s（仍是第一条 RPDO，不加预热帧），验证"网格成熟"是否就足够。
+    const int    cmd_at_i[kCmds] = { 100, 200, 300 };                // t=1s / 2s / 3s（先让 Operational 网格成熟）
     const float  tol_deg = 2.0f;
     int cmd_idx = 0, rpdo_count = 0;
     bool first_fb = true;
@@ -541,7 +543,7 @@ void test_feedback_sync_thread(EuMotorNode& motor) {
     int gap_n = 0;
 
     // 6. 主循环：不再发 SYNC（SYNC 由独立线程负责）；RPDO 仅在指令点按需投递。
-    for (int i = 0; i < 320; ++i) { // 3.2s @ 10ms
+    for (int i = 0; i < 420; ++i) { // 4.2s @ 10ms（前 1s 让 Operational 网格成熟，之后下指令）
         if (cmd_idx < kCmds && i == cmd_at_i[cmd_idx]) {
             // 先校验上一条指令是否到位 + 诊断：SDO 读回目标/实际位置
             if (cmd_idx > 0) {
