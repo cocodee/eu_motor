@@ -13,6 +13,7 @@
 #include <map>
 #include <condition_variable>
 #include <functional>
+#include <cstdint>
 
 // --- Data Structures for Feedback ---
 
@@ -30,6 +31,66 @@ struct MotorFeedbackData {
     bool in_fault = false; // 一个方便的标志位
 
     std::chrono::steady_clock::time_point last_update_time;
+};
+
+enum class GripperState {
+    Disabled,
+    Approach,
+    Hold,
+    SafeStop,
+};
+
+struct GripperConfig {
+    hreal32 open_position_deg = 0.0f;
+    hreal32 close_position_deg = 90.0f;
+    hint16 torque_limit_milli = 500;
+    hint16 hold_torque_milli = 300;
+    hint16 hold_torque_tolerance_milli = 30;
+    hint16 contact_detect_threshold_milli = 180;
+    hint16 overload_threshold_milli = 450;
+    int contact_detect_consecutive_samples = 5;
+    hreal32 force_kp_deg_per_milli = 0.002f;
+    hreal32 max_hold_step_deg = 0.2f;
+    hreal32 max_hold_target_offset_deg = 5.0f;
+    hreal32 position_tolerance_deg = 1.0f;
+    huint16 feedback_timeout_ms = 100;
+};
+
+struct GripperControlResult {
+    hreal32 target_position_deg = 0.0f;
+    GripperState state = GripperState::Disabled;
+};
+
+class GripperHoldController {
+public:
+    bool configure(const GripperConfig& config);
+    void disable();
+    void clearSafeStop();
+    GripperControlResult process(
+        hreal32 user_target_deg,
+        const MotorFeedbackData& feedback,
+        std::chrono::steady_clock::time_point now);
+    bool isEnabled() const;
+    GripperState state() const;
+    hreal32 gripPosition() const;
+    hint16 holdTorqueError() const;
+    const GripperConfig& config() const;
+
+private:
+    bool isOpeningCommand(hreal32 target_deg) const;
+    bool isClosingCommand(hreal32 target_deg, hreal32 position_deg) const;
+    hreal32 clampPosition(hreal32 position_deg) const;
+    void enterSafeStop(hreal32 position_deg);
+
+    bool enabled_ = false;
+    GripperState state_ = GripperState::Disabled;
+    GripperConfig config_;
+    hreal32 closing_sign_ = 1.0f;
+    hreal32 grip_position_deg_ = 0.0f;
+    hreal32 hold_target_position_deg_ = 0.0f;
+    hint16 hold_torque_error_milli_ = 0;
+    int contact_sample_count_ = 0;
+    std::chrono::steady_clock::time_point last_feedback_time_{};
 };
 
 /**
@@ -348,6 +409,18 @@ public:
     bool setCurrentGains(huint16 kp, huint16 ki);
     bool setCurrentKp(huint16 kp);
     bool setCurrentKi(huint16 ki);
+
+    // --- CSP gripper hold-force control ---
+    bool setGripperConfig(const GripperConfig& config);
+    void disableGripperMode();
+    bool isGripperMode() const;
+    GripperState getGripperState() const;
+    bool isGripDetected() const;
+    hreal32 getGripPosition() const;
+    hint16 getHoldTorqueError() const;
+    void clearGripperSafeStop();
+    bool setTorqueLimit(hint16 torque_milli);
+    hint16 getTorqueLimit();
 private:
     huint8 dev_index_;
     huint8 node_id_;
@@ -356,6 +429,7 @@ private:
     harmonic_OperateMode current_mode_ = harmonic_OperateMode_Reserve;
     
     MotorIdentifier motor_id_; 
+    GripperHoldController gripper_controller_;
     // Internal helper for checking API return codes
     bool check(int return_code, const std::string& operation_name) const;
 

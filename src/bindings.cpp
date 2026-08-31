@@ -128,6 +128,29 @@ PYBIND11_MODULE(eu_motor_py, m) {
                 return "<MotorFeedbackData pos=" + std::to_string(d.position_deg) +
                        " deg, vel=" + std::to_string(d.velocity_dps) + " dps>";
             });
+
+    py::enum_<GripperState>(m, "GripperState")
+        .value("Disabled", GripperState::Disabled)
+        .value("Approach", GripperState::Approach)
+        .value("Hold", GripperState::Hold)
+        .value("SafeStop", GripperState::SafeStop)
+        .export_values();
+
+    py::class_<GripperConfig>(m, "GripperConfig")
+        .def(py::init<>())
+        .def_readwrite("open_position_deg", &GripperConfig::open_position_deg)
+        .def_readwrite("close_position_deg", &GripperConfig::close_position_deg)
+        .def_readwrite("torque_limit_milli", &GripperConfig::torque_limit_milli)
+        .def_readwrite("hold_torque_milli", &GripperConfig::hold_torque_milli)
+        .def_readwrite("hold_torque_tolerance_milli", &GripperConfig::hold_torque_tolerance_milli)
+        .def_readwrite("contact_detect_threshold_milli", &GripperConfig::contact_detect_threshold_milli)
+        .def_readwrite("overload_threshold_milli", &GripperConfig::overload_threshold_milli)
+        .def_readwrite("contact_detect_consecutive_samples", &GripperConfig::contact_detect_consecutive_samples)
+        .def_readwrite("force_kp_deg_per_milli", &GripperConfig::force_kp_deg_per_milli)
+        .def_readwrite("max_hold_step_deg", &GripperConfig::max_hold_step_deg)
+        .def_readwrite("max_hold_target_offset_deg", &GripperConfig::max_hold_target_offset_deg)
+        .def_readwrite("position_tolerance_deg", &GripperConfig::position_tolerance_deg)
+        .def_readwrite("feedback_timeout_ms", &GripperConfig::feedback_timeout_ms);
     
     py::class_<EmcyMessage>(m, "EmcyMessage")
         .def(py::init<>())
@@ -194,6 +217,17 @@ PYBIND11_MODULE(eu_motor_py, m) {
         .def("get_error_code", &EuMotorNode::getErrorCode, "Returns the last error code.")
         .def("get_operation_mode", &EuMotorNode::getOperationMode, "Returns the current operation mode.")
         .def("get_latest_feedback", &EuMotorNode::getLatestFeedback, "Retrieves the most recent feedback data received via TPDO.")
+
+        .def("set_gripper_config", &EuMotorNode::setGripperConfig, py::arg("config"))
+        .def("disable_gripper_mode", &EuMotorNode::disableGripperMode)
+        .def("is_gripper_mode", &EuMotorNode::isGripperMode)
+        .def("get_gripper_state", &EuMotorNode::getGripperState)
+        .def("is_grip_detected", &EuMotorNode::isGripDetected)
+        .def("get_grip_position", &EuMotorNode::getGripPosition)
+        .def("get_hold_torque_error", &EuMotorNode::getHoldTorqueError)
+        .def("clear_gripper_safe_stop", &EuMotorNode::clearGripperSafeStop)
+        .def("set_torque_limit", &EuMotorNode::setTorqueLimit, py::arg("torque_milli"))
+        .def("get_torque_limit", &EuMotorNode::getTorqueLimit)
 
         .def("read_u8", &EuMotorNode::read<huint8>)
         .def("read_u16", &EuMotorNode::read<huint16>)

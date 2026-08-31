@@ -1,5 +1,7 @@
 #include "../include/eu_motor.h"
 #include <cstddef>
+#include <algorithm>
+#include <cmath>
 #include <iomanip>
 #include <sstream>
 
@@ -26,6 +28,143 @@ std::string harmonicErrorToString(int code) {
             ss << "Unknown error code: " << code;
             return ss.str();
     }
+}
+
+bool GripperHoldController::configure(const GripperConfig& config) {
+    if (config.open_position_deg == config.close_position_deg ||
+        config.torque_limit_milli <= 0 || config.hold_torque_milli <= 0 ||
+        config.contact_detect_threshold_milli <= 0 || config.overload_threshold_milli <= 0 ||
+        config.hold_torque_tolerance_milli < 0 || config.contact_detect_threshold_milli > config.hold_torque_milli ||
+        config.hold_torque_milli + config.hold_torque_tolerance_milli >= config.overload_threshold_milli ||
+        config.overload_threshold_milli >= config.torque_limit_milli ||
+        config.contact_detect_consecutive_samples <= 0 || config.force_kp_deg_per_milli <= 0.0f ||
+        config.max_hold_step_deg <= 0.0f || config.max_hold_target_offset_deg < 0.0f ||
+        config.position_tolerance_deg < 0.0f || config.feedback_timeout_ms == 0) {
+        return false;
+    }
+
+    config_ = config;
+    closing_sign_ = config.close_position_deg > config.open_position_deg ? 1.0f : -1.0f;
+    enabled_ = true;
+    state_ = GripperState::Approach;
+    grip_position_deg_ = config.open_position_deg;
+    hold_target_position_deg_ = config.open_position_deg;
+    hold_torque_error_milli_ = 0;
+    contact_sample_count_ = 0;
+    last_feedback_time_ = {};
+    return true;
+}
+
+void GripperHoldController::disable() {
+    enabled_ = false;
+    state_ = GripperState::Disabled;
+    contact_sample_count_ = 0;
+    hold_torque_error_milli_ = 0;
+    last_feedback_time_ = {};
+}
+
+void GripperHoldController::clearSafeStop() {
+    if (enabled_ && state_ == GripperState::SafeStop) {
+        state_ = GripperState::Approach;
+        contact_sample_count_ = 0;
+        last_feedback_time_ = {};
+    }
+}
+
+bool GripperHoldController::isEnabled() const { return enabled_; }
+GripperState GripperHoldController::state() const { return state_; }
+hreal32 GripperHoldController::gripPosition() const { return grip_position_deg_; }
+hint16 GripperHoldController::holdTorqueError() const { return hold_torque_error_milli_; }
+const GripperConfig& GripperHoldController::config() const { return config_; }
+
+bool GripperHoldController::isOpeningCommand(hreal32 target_deg) const {
+    const hreal32 reference = state_ == GripperState::Hold ? hold_target_position_deg_ : grip_position_deg_;
+    return (target_deg - reference) * closing_sign_ < -config_.position_tolerance_deg;
+}
+
+bool GripperHoldController::isClosingCommand(hreal32 target_deg, hreal32 position_deg) const {
+    return (target_deg - position_deg) * closing_sign_ > config_.position_tolerance_deg;
+}
+
+hreal32 GripperHoldController::clampPosition(hreal32 position_deg) const {
+    return std::max(std::min(config_.open_position_deg, config_.close_position_deg),
+                    std::min(position_deg, std::max(config_.open_position_deg, config_.close_position_deg)));
+}
+
+void GripperHoldController::enterSafeStop(hreal32 position_deg) {
+    state_ = GripperState::SafeStop;
+    contact_sample_count_ = 0;
+    hold_target_position_deg_ = clampPosition(position_deg);
+}
+
+GripperControlResult GripperHoldController::process(
+    hreal32 user_target_deg,
+    const MotorFeedbackData& feedback,
+    std::chrono::steady_clock::time_point now) {
+    if (!enabled_) return {user_target_deg, GripperState::Disabled};
+
+    if ((state_ == GripperState::Hold || state_ == GripperState::SafeStop) && isOpeningCommand(user_target_deg)) {
+        state_ = GripperState::Approach;
+        contact_sample_count_ = 0;
+        hold_torque_error_milli_ = 0;
+        return {user_target_deg, state_};
+    }
+
+    const bool has_feedback = feedback.last_update_time.time_since_epoch().count() != 0;
+    const bool fresh = has_feedback && now >= feedback.last_update_time &&
+        now - feedback.last_update_time <= std::chrono::milliseconds(config_.feedback_timeout_ms);
+    const bool new_sample = fresh && feedback.last_update_time > last_feedback_time_;
+
+    if (!fresh || feedback.in_fault) {
+        enterSafeStop(feedback.position_deg);
+        return {hold_target_position_deg_, state_};
+    }
+
+    if (state_ == GripperState::SafeStop) {
+        state_ = GripperState::Approach;
+        contact_sample_count_ = 0;
+    }
+
+    const int actual_torque = std::abs(static_cast<int>(feedback.torque_milli));
+    if (actual_torque >= config_.overload_threshold_milli) {
+        enterSafeStop(feedback.position_deg);
+        return {hold_target_position_deg_, state_};
+    }
+
+    if (state_ == GripperState::Approach) {
+        if (new_sample) {
+            last_feedback_time_ = feedback.last_update_time;
+            if (isClosingCommand(user_target_deg, feedback.position_deg) &&
+                actual_torque >= config_.contact_detect_threshold_milli) {
+                ++contact_sample_count_;
+                if (contact_sample_count_ >= config_.contact_detect_consecutive_samples) {
+                    state_ = GripperState::Hold;
+                    grip_position_deg_ = feedback.position_deg;
+                    hold_target_position_deg_ = feedback.position_deg;
+                    hold_torque_error_milli_ = static_cast<hint16>(config_.hold_torque_milli - actual_torque);
+                }
+            } else {
+                contact_sample_count_ = 0;
+            }
+        }
+        return {state_ == GripperState::Hold ? hold_target_position_deg_ : user_target_deg, state_};
+    }
+
+    if (state_ == GripperState::Hold && new_sample) {
+        last_feedback_time_ = feedback.last_update_time;
+        const int error = static_cast<int>(config_.hold_torque_milli) - actual_torque;
+        hold_torque_error_milli_ = static_cast<hint16>(error);
+        if (std::abs(error) > config_.hold_torque_tolerance_milli) {
+            const hreal32 raw_step = config_.force_kp_deg_per_milli * static_cast<hreal32>(error);
+            const hreal32 step = std::max(-config_.max_hold_step_deg, std::min(raw_step, config_.max_hold_step_deg));
+            const hreal32 max_close_target = grip_position_deg_ + closing_sign_ * config_.max_hold_target_offset_deg;
+            const hreal32 candidate = clampPosition(hold_target_position_deg_ + closing_sign_ * step);
+            const bool exceeds_offset = (candidate - max_close_target) * closing_sign_ > 0.0f;
+            hold_target_position_deg_ = exceeds_offset ? max_close_target : candidate;
+            if (exceeds_offset && error > 0) enterSafeStop(hold_target_position_deg_);
+        }
+    }
+    return {hold_target_position_deg_, state_};
 }
 // --- CanNetworkManager Implementation ---
 
@@ -385,6 +524,21 @@ bool EuMotorNode::configureCspMode(huint16 pdo_index, bool use_sync) {
 
     if (!check(resetAndStartNode(),"CSP: Reset and Start Node")) return false;
 
+    // Reset may restore drive parameters, so apply and verify the safety ceiling last,
+    // immediately before enabling operation.
+    if (gripper_controller_.isEnabled()) {
+        const hint16 requested_limit = gripper_controller_.config().torque_limit_milli;
+        if (!setTorqueLimit(requested_limit)) return false;
+        try {
+            if (getTorqueLimit() != requested_limit) {
+                std::cerr << "ERROR [Motor " << (int)node_id_ << "]: Gripper torque limit readback mismatch." << std::endl;
+                return false;
+            }
+        } catch (const std::runtime_error&) {
+            return false;
+        }
+    }
+
     if (!check(enableStateMachine(),"CSP: Enable State Machine")) return false;
     // Finally, set the mode
     current_mode_ = harmonic_OperateMode_CyclicSyncPosition;
@@ -397,7 +551,9 @@ int EuMotorNode::sendCspTargetPosition(hreal32 target_angle_deg, huint16 pdo_ind
         rpdo_base_cobid += (pdo_index * 0x100);
     }
     
-    hint32 pos_pulses = angleToPulses(target_angle_deg);
+    const GripperControlResult gripper_result = gripper_controller_.process(
+        target_angle_deg, getLatestFeedback(), std::chrono::steady_clock::now());
+    hint32 pos_pulses = angleToPulses(gripper_result.target_position_deg);
     
     huint8 data[4];
     data[0] = pos_pulses & 0xFF;
@@ -867,6 +1023,34 @@ bool EuMotorNode::setCurrentKp(huint16 kp) {
 bool EuMotorNode::setCurrentKi(huint16 ki) {
     // 调用库函数设置电流环 Ki (对象 0x2010, 子索引 4)
     return check(harmonic_setServoCurrentLoopKI(dev_index_, node_id_, ki, timeout_ms_), "Set Current Ki");
+}
+
+bool EuMotorNode::setGripperConfig(const GripperConfig& config) {
+    if (!gripper_controller_.configure(config)) {
+        std::cerr << "ERROR [Motor " << (int)node_id_ << "]: Invalid gripper configuration." << std::endl;
+        return false;
+    }
+    return true;
+}
+
+void EuMotorNode::disableGripperMode() { gripper_controller_.disable(); }
+bool EuMotorNode::isGripperMode() const { return gripper_controller_.isEnabled(); }
+GripperState EuMotorNode::getGripperState() const { return gripper_controller_.state(); }
+bool EuMotorNode::isGripDetected() const { return gripper_controller_.state() == GripperState::Hold; }
+hreal32 EuMotorNode::getGripPosition() const { return gripper_controller_.gripPosition(); }
+hint16 EuMotorNode::getHoldTorqueError() const { return gripper_controller_.holdTorqueError(); }
+void EuMotorNode::clearGripperSafeStop() { gripper_controller_.clearSafeStop(); }
+
+bool EuMotorNode::setTorqueLimit(hint16 torque_milli) {
+    return check(harmonic_setTorqueLimit(dev_index_, node_id_, torque_milli, timeout_ms_), "Set Torque Limit");
+}
+
+hint16 EuMotorNode::getTorqueLimit() {
+    hint16 limit = 0;
+    if (!check(harmonic_getTorqueLimit(dev_index_, node_id_, &limit, timeout_ms_), "Get Torque Limit")) {
+        throw std::runtime_error("Failed to read Torque Limit for Node " + std::to_string(node_id_));
+    }
+    return limit;
 }
 
 MotorFeedbackData EuMotorNode::getLatestFeedback(){
