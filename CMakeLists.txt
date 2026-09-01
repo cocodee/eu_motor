@@ -18,4 +18,4 @@ add_subdirectory(src)
 
 # Most examples use the vendor C API directly. The gripper example uses the
 # C++ SDK, so it must link against the library that implements EuMotorNode.
-target_link_libraries(test_gripper_csp_mode PRIVATE eu_motor)
+target_link_libraries(test_gripper_csp_mode eu_motor)
