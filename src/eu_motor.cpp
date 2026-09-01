@@ -78,7 +78,9 @@ hint16 GripperHoldController::holdTorqueError() const { return hold_torque_error
 const GripperConfig& GripperHoldController::config() const { return config_; }
 
 bool GripperHoldController::isOpeningCommand(hreal32 target_deg) const {
-    const hreal32 reference = state_ == GripperState::Hold ? hold_target_position_deg_ : grip_position_deg_;
+    const hreal32 reference = (state_ == GripperState::Hold || state_ == GripperState::SafeStop)
+        ? hold_target_position_deg_
+        : grip_position_deg_;
     return (target_deg - reference) * closing_sign_ < -config_.position_tolerance_deg;
 }
 

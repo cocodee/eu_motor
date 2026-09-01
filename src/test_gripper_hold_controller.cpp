@@ -75,6 +75,19 @@ void test_stale_feedback_enters_safe_stop() {
     assert(result.target_position_deg == 40.0f);
 }
 
+void test_open_command_releases_safe_stop_from_safe_position() {
+    GripperHoldController controller;
+    assert(controller.configure(config()));
+    controller.process(90.0f, feedback(40.0f, 200, 1),
+                       std::chrono::steady_clock::time_point(std::chrono::milliseconds(200)));
+    assert(controller.state() == GripperState::SafeStop);
+
+    const auto released = controller.process(0.0f, feedback(40.0f, 200, 201),
+                                             std::chrono::steady_clock::time_point(std::chrono::milliseconds(201)));
+    assert(released.state == GripperState::Approach);
+    assert(released.target_position_deg == 0.0f);
+}
+
 }  // namespace
 
 int main() {
@@ -82,5 +95,6 @@ int main() {
     test_contact_requires_distinct_samples();
     test_hold_adjusts_target_in_force_direction();
     test_stale_feedback_enters_safe_stop();
+    test_open_command_releases_safe_stop_from_safe_position();
     return 0;
 }
