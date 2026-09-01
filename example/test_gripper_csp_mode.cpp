@@ -49,6 +49,8 @@ void printProgress(EuMotorNode& motor, hreal32 command_target_deg, int elapsed_m
               << " actual=" << feedback.position_deg << " deg"
               << " torque=" << feedback.torque_milli << " permille"
               << " hold_error=" << motor.getHoldTorqueError() << " permille"
+              << " status=0x" << std::hex << feedback.status_word << std::dec
+              << " fault=" << (feedback.in_fault ? "yes" : "no")
               << " feedback_age=";
     if (feedback_age_ms < 0) std::cout << "none";
     else std::cout << feedback_age_ms << " ms";

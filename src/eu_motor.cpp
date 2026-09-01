@@ -105,7 +105,19 @@ GripperControlResult GripperHoldController::process(
     std::chrono::steady_clock::time_point now) {
     if (!enabled_) return {user_target_deg, GripperState::Disabled};
 
-    if ((state_ == GripperState::Hold || state_ == GripperState::SafeStop) && isOpeningCommand(user_target_deg)) {
+    // A caller's opening command always wins over SafeStop. Compare it to the
+    // measured position, rather than an internally frozen target, so the exact
+    // CSP command supplied by the caller is forwarded for release.
+    const bool opening_from_actual = (user_target_deg - feedback.position_deg) * closing_sign_ <
+        -config_.position_tolerance_deg;
+    if (state_ == GripperState::SafeStop && opening_from_actual) {
+        state_ = GripperState::Approach;
+        contact_sample_count_ = 0;
+        hold_torque_error_milli_ = 0;
+        return {user_target_deg, state_};
+    }
+
+    if (state_ == GripperState::Hold && isOpeningCommand(user_target_deg)) {
         state_ = GripperState::Approach;
         contact_sample_count_ = 0;
         hold_torque_error_milli_ = 0;
