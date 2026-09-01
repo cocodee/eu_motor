@@ -85,7 +85,7 @@ int main(int argc, char** argv) {
 
     GripperConfig config;
     config.open_position_deg = -40.0f;
-    config.close_position_deg = 5.0f;
+    config.close_position_deg = 10.0f;
     config.torque_limit_milli = 300;
     config.hold_torque_milli = 180;
     config.hold_torque_tolerance_milli = 20;
