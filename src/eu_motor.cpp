@@ -128,7 +128,12 @@ GripperControlResult GripperHoldController::process(
     }
 
     const int actual_torque = std::abs(static_cast<int>(feedback.torque_milli));
-    if (actual_torque >= config_.overload_threshold_milli) {
+    const bool closing_command = isClosingCommand(user_target_deg, feedback.position_deg);
+    // A released gripper can report a high residual torque for several TPDO
+    // cycles. Only treat overload as a stop condition while closing or holding;
+    // otherwise the release command would immediately re-enter SafeStop.
+    if (actual_torque >= config_.overload_threshold_milli &&
+        (state_ == GripperState::Hold || closing_command)) {
         enterSafeStop(feedback.position_deg);
         return {hold_target_position_deg_, state_};
     }
@@ -136,7 +141,7 @@ GripperControlResult GripperHoldController::process(
     if (state_ == GripperState::Approach) {
         if (new_sample) {
             last_feedback_time_ = feedback.last_update_time;
-            if (isClosingCommand(user_target_deg, feedback.position_deg) &&
+            if (closing_command &&
                 actual_torque >= config_.contact_detect_threshold_milli) {
                 ++contact_sample_count_;
                 if (contact_sample_count_ >= config_.contact_detect_consecutive_samples) {

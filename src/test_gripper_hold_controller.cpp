@@ -88,6 +88,21 @@ void test_open_command_releases_safe_stop_from_safe_position() {
     assert(released.target_position_deg == 0.0f);
 }
 
+void test_release_ignores_residual_overload_torque() {
+    GripperHoldController controller;
+    assert(controller.configure(config()));
+    controller.process(90.0f, feedback(40.0f, 200, 1),
+                       std::chrono::steady_clock::time_point(std::chrono::milliseconds(200)));
+    assert(controller.state() == GripperState::SafeStop);
+
+    controller.process(0.0f, feedback(40.0f, 480, 201),
+                       std::chrono::steady_clock::time_point(std::chrono::milliseconds(201)));
+    const auto releasing = controller.process(0.0f, feedback(39.0f, 480, 202),
+                                              std::chrono::steady_clock::time_point(std::chrono::milliseconds(202)));
+    assert(releasing.state == GripperState::Approach);
+    assert(releasing.target_position_deg == 0.0f);
+}
+
 }  // namespace
 
 int main() {
@@ -96,5 +111,6 @@ int main() {
     test_hold_adjusts_target_in_force_direction();
     test_stale_feedback_enters_safe_stop();
     test_open_command_releases_safe_stop_from_safe_position();
+    test_release_ignores_residual_overload_torque();
     return 0;
 }
