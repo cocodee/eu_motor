@@ -418,6 +418,10 @@ public:
     bool isGripDetected() const;
     hreal32 getGripPosition() const;
     hint16 getHoldTorqueError() const;
+    // The position that was actually encoded into the latest CSP RPDO after
+    // gripper processing.  This differs from the caller's request in Hold or
+    // SafeStop and is useful for diagnosing command-flow issues.
+    hreal32 getLastCspEffectiveTargetPosition() const;
     void clearGripperSafeStop();
     bool setTorqueLimit(hint16 torque_milli);
     hint16 getTorqueLimit();
@@ -430,6 +434,7 @@ private:
     
     MotorIdentifier motor_id_; 
     GripperHoldController gripper_controller_;
+    hreal32 last_csp_effective_target_deg_ = 0.0f;
     // Internal helper for checking API return codes
     bool check(int return_code, const std::string& operation_name) const;
 

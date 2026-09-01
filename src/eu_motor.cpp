@@ -572,6 +572,7 @@ int EuMotorNode::sendCspTargetPosition(hreal32 target_angle_deg, huint16 pdo_ind
     
     const GripperControlResult gripper_result = gripper_controller_.process(
         target_angle_deg, getLatestFeedback(), std::chrono::steady_clock::now());
+    last_csp_effective_target_deg_ = gripper_result.target_position_deg;
     hint32 pos_pulses = angleToPulses(gripper_result.target_position_deg);
     
     huint8 data[4];
@@ -1058,6 +1059,7 @@ GripperState EuMotorNode::getGripperState() const { return gripper_controller_.s
 bool EuMotorNode::isGripDetected() const { return gripper_controller_.state() == GripperState::Hold; }
 hreal32 EuMotorNode::getGripPosition() const { return gripper_controller_.gripPosition(); }
 hint16 EuMotorNode::getHoldTorqueError() const { return gripper_controller_.holdTorqueError(); }
+hreal32 EuMotorNode::getLastCspEffectiveTargetPosition() const { return last_csp_effective_target_deg_; }
 void EuMotorNode::clearGripperSafeStop() { gripper_controller_.clearSafeStop(); }
 
 bool EuMotorNode::setTorqueLimit(hint16 torque_milli) {

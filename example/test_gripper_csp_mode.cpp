@@ -46,6 +46,7 @@ void printProgress(EuMotorNode& motor, hreal32 command_target_deg, int elapsed_m
     std::cout << "[t=" << std::setw(5) << elapsed_ms << " ms]"
               << " state=" << stateName(motor.getGripperState())
               << " cmd=" << std::fixed << std::setprecision(2) << command_target_deg << " deg"
+              << " effective=" << motor.getLastCspEffectiveTargetPosition() << " deg"
               << " actual=" << feedback.position_deg << " deg"
               << " torque=" << feedback.torque_milli << " permille"
               << " hold_error=" << motor.getHoldTorqueError() << " permille"

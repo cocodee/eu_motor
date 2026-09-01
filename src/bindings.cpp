@@ -225,6 +225,7 @@ PYBIND11_MODULE(eu_motor_py, m) {
         .def("is_grip_detected", &EuMotorNode::isGripDetected)
         .def("get_grip_position", &EuMotorNode::getGripPosition)
         .def("get_hold_torque_error", &EuMotorNode::getHoldTorqueError)
+        .def("get_last_csp_effective_target_position", &EuMotorNode::getLastCspEffectiveTargetPosition)
         .def("clear_gripper_safe_stop", &EuMotorNode::clearGripperSafeStop)
         .def("set_torque_limit", &EuMotorNode::setTorqueLimit, py::arg("torque_milli"))
         .def("get_torque_limit", &EuMotorNode::getTorqueLimit)
