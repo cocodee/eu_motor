@@ -16,6 +16,7 @@ find_package(pybind11 REQUIRED)
 add_library(eu_motor SHARED eu_motor.cpp)
 add_executable(test_suite test_suite.cpp)
 add_executable(test_gripper_hold_controller test_gripper_hold_controller.cpp)
+add_executable(test_gripper_csp_mode ../example/test_gripper_csp_mode.cpp)
 
 pybind11_add_module(eu_motor_py SHARED
     bindings.cpp # 这是我们上面写的绑定文件
@@ -29,4 +30,5 @@ elseif(UNIX)
     target_link_libraries(eu_motor PUBLIC ${EYOU_LIB_PATH}/libeu_harmonic.so pthread)
     target_link_libraries(test_suite ${EYOU_LIB_PATH}/libeu_harmonic.so pthread eu_motor)
     target_link_libraries(test_gripper_hold_controller ${EYOU_LIB_PATH}/libeu_harmonic.so pthread eu_motor)
+    target_link_libraries(test_gripper_csp_mode ${EYOU_LIB_PATH}/libeu_harmonic.so pthread eu_motor)
 endif()
