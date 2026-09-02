@@ -85,7 +85,11 @@ bool GripperHoldController::isOpeningCommand(hreal32 target_deg) const {
 }
 
 bool GripperHoldController::isClosingCommand(hreal32 target_deg, hreal32 position_deg) const {
-    return (target_deg - position_deg) * closing_sign_ > config_.position_tolerance_deg;
+    // Contact detection must remain active during a slow CSP approach.  The
+    // commanded position normally stays only a few encoder counts ahead of
+    // the measured position, so position_tolerance_deg must not be used to
+    // infer the caller's closing intent.
+    return (target_deg - position_deg) * closing_sign_ > 0.0f;
 }
 
 hreal32 GripperHoldController::clampPosition(hreal32 position_deg) const {

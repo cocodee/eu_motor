@@ -51,6 +51,21 @@ void test_contact_requires_distinct_samples() {
     assert(controller.gripPosition() == 40.0f);
 }
 
+void test_contact_detects_when_target_is_slightly_ahead_of_position() {
+    GripperHoldController controller;
+    assert(controller.configure(config()));
+
+    // Position tolerance is for release/arrival decisions.  It must not make
+    // a slow closing command lose its closing intent before contact detection.
+    controller.process(40.05f, feedback(40.0f, 180, 20),
+                       std::chrono::steady_clock::time_point(std::chrono::milliseconds(20)));
+    controller.process(40.05f, feedback(40.0f, 180, 40),
+                       std::chrono::steady_clock::time_point(std::chrono::milliseconds(40)));
+
+    assert(controller.state() == GripperState::Hold);
+    assert(controller.gripPosition() == 40.0f);
+}
+
 void test_hold_adjusts_target_in_force_direction() {
     GripperHoldController controller;
     assert(controller.configure(config()));
@@ -108,6 +123,7 @@ void test_release_ignores_residual_overload_torque() {
 int main() {
     test_disabled_passthrough();
     test_contact_requires_distinct_samples();
+    test_contact_detects_when_target_is_slightly_ahead_of_position();
     test_hold_adjusts_target_in_force_direction();
     test_stale_feedback_enters_safe_stop();
     test_open_command_releases_safe_stop_from_safe_position();
