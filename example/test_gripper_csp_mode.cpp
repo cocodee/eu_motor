@@ -79,6 +79,7 @@ int main(int argc, char** argv) {
     constexpr huint16 kPeriodMs = 20;
     constexpr hreal32 kApproachStepDeg = 0.01f;  // 0.5 deg/s at 20 ms
     constexpr hreal32 kReleaseStepDeg = 0.10f;   // 5.0 deg/s at 20 ms
+    constexpr int kHoldDurationMs = 10000;
 
     CanNetworkManager can_manager;
     can_manager.initDevice(harmonic_DeviceType_Canable, device_index, harmonic_Baudrate_1000);
@@ -113,8 +114,13 @@ int main(int argc, char** argv) {
     std::cout << "Initial position=" << std::fixed << std::setprecision(2) << command_target_deg
               << " deg; approach: " << config.open_position_deg << " -> " << config.close_position_deg
               << " deg; target hold torque=" << config.hold_torque_milli << " permille" << std::endl;
+    const int max_approach_iterations = std::max(
+        1, static_cast<int>(std::ceil(
+               std::abs(config.close_position_deg - command_target_deg) / kApproachStepDeg)) + 1);
+    const int hold_iterations = std::max(1, kHoldDurationMs / static_cast<int>(kPeriodMs));
+    int completed_hold_iterations = 0;
     GripperState previous_state = motor->getGripperState();
-    for (int i = 0; i < 3000; ++i) {
+    for (int i = 0;; ++i) {
         if (motor->getGripperState() != GripperState::Hold) {
             command_target_deg = moveToward(command_target_deg, config.close_position_deg, kApproachStepDeg);
         }
@@ -131,8 +137,21 @@ int main(int argc, char** argv) {
             break;
         }
         if (current_state == GripperState::Hold) {
-            // Keep the externally supplied target near contact; the SDK owns the hold target.
-            command_target_deg = motor->getGripPosition();
+            // Keep requesting closure. The SDK owns the internal hold target; sending a
+            // contact-point target here could be interpreted as an opening command once
+            // the hold controller has advanced its target.
+            command_target_deg = config.close_position_deg;
+            if (++completed_hold_iterations >= hold_iterations) {
+                std::cout << "Configured hold duration completed." << std::endl;
+                break;
+            }
+        } else if (command_target_deg == config.close_position_deg) {
+            std::cout << "Reached configured close position without contact." << std::endl;
+            break;
+        } else if (i + 1 >= max_approach_iterations) {
+            std::cerr << "Approach iteration limit reached before the configured close position."
+                      << std::endl;
+            break;
         }
         std::this_thread::sleep_for(std::chrono::milliseconds(kPeriodMs));
     }
