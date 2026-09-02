@@ -77,7 +77,7 @@ int main(int argc, char** argv) {
     }
 
     constexpr huint16 kPeriodMs = 20;
-    constexpr hreal32 kApproachStepDeg = 0.05f;  // 2.5 deg/s at 20 ms
+    constexpr hreal32 kApproachStepDeg = 0.01f;  // 0.5 deg/s at 20 ms
     constexpr hreal32 kReleaseStepDeg = 0.10f;   // 5.0 deg/s at 20 ms
 
     CanNetworkManager can_manager;
@@ -89,12 +89,12 @@ int main(int argc, char** argv) {
     GripperConfig config;
     config.open_position_deg = -40.0f;
     config.close_position_deg = 20.0f;
-    config.torque_limit_milli = 300;
-    config.hold_torque_milli = 180;
+    config.torque_limit_milli = 700;
+    config.hold_torque_milli = 250;
     config.hold_torque_tolerance_milli = 20;
-    config.contact_detect_threshold_milli = 120;
-    config.overload_threshold_milli = 270;
-    config.contact_detect_consecutive_samples = 5;
+    config.contact_detect_threshold_milli = 150;
+    config.overload_threshold_milli = 550;
+    config.contact_detect_consecutive_samples = 1;
     config.force_kp_deg_per_milli = 0.001f;
     config.max_hold_step_deg = 0.05f;
     config.max_hold_target_offset_deg = 2.0f;
